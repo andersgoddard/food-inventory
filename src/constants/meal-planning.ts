@@ -1,0 +1,2 @@
+export const PLANNING_USE_SOON_DAYS = 7;
+export const PLANNING_MAX_PREPARATION_MINUTES = 45;

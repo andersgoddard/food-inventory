@@ -1,0 +1,148 @@
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
+import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { ThemedText } from '@/components/themed-text';
+import { ThemedView } from '@/components/themed-view';
+import { Button } from '@/components/ui/button';
+import { FeedbackBanner } from '@/components/ui/feedback-banner';
+import { Input } from '@/components/ui/input';
+import { Spacing } from '@/constants/theme';
+import { useShopping } from '@/hooks/use-shopping';
+import { ShoppingItemStatus } from '@/types/shopping';
+
+export default function ShoppingScreen() {
+  const router = useRouter();
+  const params = useLocalSearchParams<{ mealPlanId?: string; shoppingListId?: string }>();
+  const { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, compareItemPrice } = useShopping();
+  const [manualName, setManualName] = useState('');
+  const [manualQuantity, setManualQuantity] = useState('');
+  const [priceInputs, setPriceInputs] = useState<Record<string, { current: string; reference: string }>>({});
+
+  useEffect(() => {
+    if (params.shoppingListId) openList(params.shoppingListId);
+    else if (params.mealPlanId) generateForPlan(params.mealPlanId);
+    else loadLists();
+  }, [generateForPlan, loadLists, openList, params.mealPlanId, params.shoppingListId]);
+
+  const addItem = () => {
+    addManualItem(manualName, manualQuantity ? Number(manualQuantity) : null, null);
+    setManualName('');
+    setManualQuantity('');
+  };
+
+  const statusButton = (itemId: string, status: ShoppingItemStatus, label: string) => (
+    <Button title={label} size="small" variant={status === 'purchased' ? 'primary' : 'secondary'} onPress={() => setItemStatus(itemId, status)} />
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <ThemedText type="title">Shopping list</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">What you need to buy for your meal plan.</ThemedText>
+          {error && <FeedbackBanner message={error} tone="error" />}
+          {loading && <ThemedText type="small" themeColor="textSecondary">Preparing your shopping list...</ThemedText>}
+          {!loading && list && (
+            <>
+              <ThemedText type="subtitle">{list.title}</ThemedText>
+              {list.items.length === 0 ? (
+                <ThemedView style={styles.empty}><ThemedText type="subtitle">Nothing to buy</ThemedText><ThemedText type="small" themeColor="textSecondary">Your inventory covers this plan.</ThemedText></ThemedView>
+              ) : list.items.map((item) => (
+                <ThemedView key={item.id} style={styles.item}>
+                  <ThemedText type="subtitle" style={styles.itemName}>{item.name}</ThemedText>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {item.missingQuantity === null ? 'Quantity uncertain' : `${item.missingQuantity} ${item.unit || ''}`.trim()}
+                    {' · '}{item.source === 'meal_plan' ? 'From meal plan' : 'Manual item'}
+                  </ThemedText>
+                  <ThemedText type="small" style={item.priceStatus === 'unknown' ? undefined : styles.priceStatus}>
+                    {item.priceStatus === 'unknown' ? 'Price unknown' : item.priceStatus.replace('_', ' ')}
+                  </ThemedText>
+                  <ThemedView style={styles.priceSection}>
+                    <Input
+                      label="Current price (GBP)"
+                      value={priceInputs[item.id]?.current || ''}
+                      onChangeText={(value) => setPriceInputs((current) => ({ ...current, [item.id]: { current: value, reference: current[item.id]?.reference || '' } }))}
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 5.50"
+                    />
+                    <Input
+                      label="Reference price (GBP)"
+                      value={priceInputs[item.id]?.reference || ''}
+                      onChangeText={(value) => setPriceInputs((current) => ({ ...current, [item.id]: { current: current[item.id]?.current || '', reference: value } }))}
+                      keyboardType="decimal-pad"
+                      placeholder="e.g. 6.00"
+                    />
+                    <Button
+                      title="Compare price"
+                      variant="secondary"
+                      onPress={() => {
+                        const values = priceInputs[item.id];
+                        if (values?.current && values.reference) void compareItemPrice(item.id, Number(values.current), Number(values.reference));
+                      }}
+                      disabled={!priceInputs[item.id]?.current || !priceInputs[item.id]?.reference}
+                    />
+                  </ThemedView>
+                  {item.priceAssessment && (
+                    <ThemedView style={styles.assessment}>
+                      <ThemedText type="smallBold">{item.priceAssessment.recommendation.replaceAll('_', ' ')}</ThemedText>
+                      <ThemedText type="small" themeColor="textSecondary">
+                        {item.priceAssessment.differencePercent === null ? 'No comparable difference available.' : `${item.priceAssessment.differencePercent.toFixed(0)}% versus reference`}
+                        {' · '}{item.priceAssessment.trend.direction} trend · {item.priceAssessment.volatility} volatility
+                      </ThemedText>
+                      {item.priceAssessment.reasons.map((reason) => <ThemedText key={reason} type="small" themeColor="textSecondary">• {reason}</ThemedText>)}
+                    </ThemedView>
+                  )}
+                  <ThemedView style={styles.actions}>
+                    {statusButton(item.id, 'needed', 'Needed')}
+                    {statusButton(item.id, 'purchased', 'Purchased')}
+                    {statusButton(item.id, 'skipped', 'Skipped')}
+                  </ThemedView>
+                </ThemedView>
+              ))}
+              <ThemedView style={styles.manualSection}>
+                <ThemedText type="subtitle">Add an item</ThemedText>
+                <Input label="Item name" value={manualName} onChangeText={setManualName} placeholder="e.g. Coffee" />
+                <Input label="Quantity (optional)" value={manualQuantity} onChangeText={setManualQuantity} keyboardType="decimal-pad" />
+                <Button title="Add manual item" onPress={addItem} disabled={!manualName.trim()} />
+              </ThemedView>
+              <Button title="Save shopping list" onPress={save} disabled={loading} />
+            </>
+          )}
+          {!loading && !list && savedLists.length === 0 && <ThemedView style={styles.empty}><ThemedText type="subtitle">No shopping list yet</ThemedText><ThemedText type="small" themeColor="textSecondary">Open a saved meal plan to create one.</ThemedText></ThemedView>}
+          {!loading && !list && savedLists.length > 0 && (
+            <ThemedView style={styles.savedSection}>
+              <ThemedText type="subtitle">Saved shopping lists</ThemedText>
+              {savedLists.map((savedList) => (
+                <Button
+                  key={savedList.id}
+                  title={savedList.title}
+                  variant="secondary"
+                  onPress={() => router.replace({ pathname: '/shopping', params: { shoppingListId: savedList.id } })}
+                />
+              ))}
+            </ThemedView>
+          )}
+          <Pressable onPress={() => router.replace('/')} style={styles.back}><ThemedText type="small" themeColor="textSecondary">Back to dashboard</ThemedText></Pressable>
+        </ScrollView>
+      </SafeAreaView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
+  content: { gap: Spacing.three, paddingBottom: Spacing.six },
+  item: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#F7F8FA' },
+  itemName: { fontSize: 24, lineHeight: 30 },
+  priceStatus: { color: '#9A6700', fontWeight: '600' },
+  priceSection: { gap: Spacing.two, paddingTop: Spacing.two },
+  assessment: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two, backgroundColor: '#E7F0FF' },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
+  manualSection: { gap: Spacing.two, paddingTop: Spacing.two },
+  savedSection: { gap: Spacing.two },
+  empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
+  back: { alignItems: 'center', paddingVertical: Spacing.two },
+});
