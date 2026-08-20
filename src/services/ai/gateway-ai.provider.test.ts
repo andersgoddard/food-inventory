@@ -10,6 +10,23 @@ function response(body: unknown, ok = true, status = 200): Response {
 }
 
 describe('GatewayAiProvider', () => {
+  it('checks gateway health without requiring AI authentication', async () => {
+    const fetcher = jest.fn().mockResolvedValue(response({ status: 'ok' }));
+    const provider = new GatewayAiProvider({ baseUrl: 'https://ai.example.test', token: 'mvp-token', fetcher });
+
+    await expect(provider.healthCheck()).resolves.toBe(true);
+    expect(fetcher).toHaveBeenCalledWith('https://ai.example.test/health', expect.objectContaining({ method: 'GET' }));
+  });
+
+  it('treats an unavailable gateway as a failed health check', async () => {
+    const provider = new GatewayAiProvider({
+      baseUrl: 'https://ai.example.test',
+      fetcher: jest.fn().mockRejectedValue(new Error('gateway unavailable')),
+    });
+
+    await expect(provider.healthCheck()).resolves.toBe(false);
+  });
+
   it('returns validated provider-neutral responses', async () => {
     const fetcher = jest.fn().mockResolvedValue(response({
       capability: 'recipe_suggestions',

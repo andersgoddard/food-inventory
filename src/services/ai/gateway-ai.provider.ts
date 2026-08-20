@@ -2,6 +2,7 @@ import { AiProvider, AiProviderError, AiRequest, AiResponse } from './ai-capabil
 import { parseAiGatewayResponse } from './ai.schemas';
 
 const DEFAULT_TIMEOUT_MS = 20_000;
+const HEALTH_CHECK_TIMEOUT_MS = 5_000;
 
 export interface AiGatewayProviderOptions {
   baseUrl: string;
@@ -17,6 +18,23 @@ export class GatewayAiProvider implements AiProvider {
   constructor(private readonly options: AiGatewayProviderOptions) {
     this.fetcher = options.fetcher || fetch;
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
+  }
+
+  async healthCheck(): Promise<boolean> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+
+    try {
+      const response = await this.fetcher(`${this.options.baseUrl}/health`, {
+        method: 'GET',
+        signal: controller.signal,
+      });
+      return response.ok;
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timeout);
+    }
   }
 
   async request(request: AiRequest): Promise<AiResponse> {
