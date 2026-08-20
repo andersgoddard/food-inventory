@@ -139,7 +139,7 @@ export default function ScanFoodScreen() {
             <ThemedView style={styles.reviewSection}>
               <ThemedText type="subtitle">Review suggestions</ThemedText>
               <ThemedText type="small" themeColor="textSecondary">
-                These are mock suggestions for the V0.2 workflow. Check every item before saving.
+                These suggestions were generated from your photo. Check every item before saving.
               </ThemedText>
               {candidates.map((candidate) => (
                 <ThemedView key={candidate.id} style={styles.candidate}>

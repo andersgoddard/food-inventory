@@ -99,4 +99,32 @@ describe('OpenAiRecipeProvider', () => {
 
     await expect(provider.generate(request)).rejects.toThrow();
   });
+
+  it('keeps recipes with ordinary cooking units by normalizing unsupported units', async () => {
+    const aiProvider: AiProvider = {
+      request: jest.fn().mockResolvedValue({
+        capability: 'recipe_suggestions',
+        model: 'gpt-5.4-mini',
+        output: { suggestions: [{
+          title: 'Pasta dinner',
+          summary: 'A practical meal.',
+          servings: 2,
+          preparationMinutes: 20,
+          ingredients: [{ name: 'pasta', quantity: 200, unit: 'g', substitution: null }, { name: 'oil', quantity: 1, unit: 'tbsp', substitution: null }],
+          steps: ['Cook and serve.'],
+          expiryPriority: 'none',
+          confidence: 0.8,
+        }] },
+      }),
+    };
+    const provider = new OpenAiRecipeProvider({ aiProvider });
+
+    await expect(provider.generate(request)).resolves.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        ingredients: expect.arrayContaining([
+          expect.objectContaining({ name: 'oil', unit: null }),
+        ]),
+      }),
+    ]));
+  });
 });

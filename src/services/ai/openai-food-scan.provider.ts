@@ -19,6 +19,34 @@ export interface OpenAiFoodScanProviderOptions {
   loadImage?: (photo: ScanPhoto) => Promise<string>;
 }
 
+async function encodeBrowserImage(blob: Blob, photoId: string): Promise<string> {
+  if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Image === 'undefined') {
+    throw new Error(`Unable to encode image ${photoId}.`);
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  try {
+    const image = new Image();
+    image.decoding = 'async';
+    image.src = objectUrl;
+    await image.decode();
+
+    const canvas = document.createElement('canvas');
+    canvas.width = image.naturalWidth || image.width;
+    canvas.height = image.naturalHeight || image.height;
+    if (!canvas.width || !canvas.height) throw new Error(`Unable to encode image ${photoId}.`);
+
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error(`Unable to encode image ${photoId}.`);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL('image/jpeg', 0.86);
+  } catch {
+    throw new Error(`Unable to decode image ${photoId}.`);
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+
 async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
   console.log('[food-scan] image fetch started', { photoId: photo.id, uriScheme: photo.uri.split(':')[0] });
   const response = await fetch(photo.uri);
@@ -27,18 +55,21 @@ async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
   const blob = await response.blob();
   console.log('[food-scan] image blob loaded', { photoId: photo.id, type: blob.type, size: blob.size });
 
+  if (typeof document !== 'undefined') {
+    console.log('[food-scan] image encoding started with browser canvas', { photoId: photo.id });
+    const dataUrl = await encodeBrowserImage(blob, photo.id);
+    console.log('[food-scan] image encoding completed', { photoId: photo.id, dataUrlLength: dataUrl.length, format: 'image/jpeg' });
+    return dataUrl;
+  }
+
   if (typeof blob.arrayBuffer === 'function' && typeof btoa === 'function') {
-    console.log('[food-scan] image encoding started with arrayBuffer', { photoId: photo.id });
     const bytes = new Uint8Array(await blob.arrayBuffer());
-    console.log('[food-scan] image arrayBuffer completed', { photoId: photo.id, byteLength: bytes.length });
     let binary = '';
     const chunkSize = 0x8000;
     for (let offset = 0; offset < bytes.length; offset += chunkSize) {
       binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
     }
-    const dataUrl = `data:${blob.type || 'application/octet-stream'};base64,${btoa(binary)}`;
-    console.log('[food-scan] image encoding completed', { photoId: photo.id, dataUrlLength: dataUrl.length });
-    return dataUrl;
+    return `data:${blob.type || 'application/octet-stream'};base64,${btoa(binary)}`;
   }
 
   console.log('[food-scan] image encoding started with FileReader', { photoId: photo.id });
@@ -116,6 +147,9 @@ export class OpenAiFoodScanProvider implements FoodScanProvider {
     console.log('[food-scan] AI output validated', { candidateCount: output.candidates.length });
     const photoIds = new Set(photos.map((photo) => photo.id));
     return deduplicateCandidates(output.candidates
+      .map((candidate) => photos.length === 1 && !photoIds.has(candidate.photoId)
+        ? { ...candidate, photoId: photos[0].id }
+        : candidate)
       .filter((candidate) => photoIds.has(candidate.photoId))
       .map((candidate) => toFoodScanCandidate(candidate, location, generateUUID())));
   }

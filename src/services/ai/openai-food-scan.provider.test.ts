@@ -60,4 +60,17 @@ describe('OpenAiFoodScanProvider', () => {
 
     await expect(scan.analyze([photos[0]], 'fridge')).rejects.toThrow();
   });
+
+  it('associates model candidates with the only submitted photo when its ID is not echoed', async () => {
+    const provider: AiProvider = {
+      request: jest.fn().mockResolvedValue({
+        capability: 'food_scan',
+        model: 'gpt-5.4-mini',
+        output: { candidates: [{ photoId: 'model-photo-id', name: 'Milk', category: 'dairy', quantity: 1, unit: 'l', confidence: 0.9 }] },
+      }),
+    };
+    const scan = new OpenAiFoodScanProvider({ aiProvider: provider, loadImage: async () => 'data:image/jpeg;base64,test' });
+
+    await expect(scan.analyze([photos[0]], 'fridge')).resolves.toHaveLength(1);
+  });
 });

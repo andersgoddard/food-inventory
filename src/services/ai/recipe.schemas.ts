@@ -5,10 +5,15 @@ import { z } from 'zod';
 const unitSchema = z.enum(['g', 'kg', 'ml', 'l', 'unit', 'package']);
 const expiryPrioritySchema = z.enum(['high', 'normal', 'none']);
 
+const recipeUnitSchema = z.preprocess(
+  (value) => typeof value === 'string' && unitSchema.safeParse(value).success ? value : null,
+  unitSchema.nullable()
+);
+
 const recipeIngredientSchema = z.object({
   name: z.string().trim().min(1).max(120),
   quantity: z.number().positive().max(1000).nullable(),
-  unit: unitSchema.nullable(),
+  unit: recipeUnitSchema,
   substitution: z.string().trim().max(240).nullable().optional(),
 });
 
