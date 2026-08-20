@@ -5,13 +5,31 @@ import { pathToFileURL } from 'node:url';
 const maxBodyBytes = 8 * 1024 * 1024;
 const maxRequestsPerMinute = 30;
 const capabilities = new Set(['food_scan', 'recipe_suggestions', 'meal_planning']);
+const allowedOrigins = new Set(
+  (process.env.AI_GATEWAY_ALLOWED_ORIGINS || 'http://localhost:8081,http://127.0.0.1:8081')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean)
+);
 
-function writeJson(response, status, body) {
+function writeJson(response, status, body, headers = {}) {
   response.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
+    ...headers,
   });
   response.end(JSON.stringify(body));
+}
+
+function corsHeaders(request) {
+  const origin = request.headers.origin;
+  if (!origin || !allowedOrigins.has(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Access-Control-Allow-Methods': 'GET, OPTIONS, POST',
+    Vary: 'Origin',
+  };
 }
 
 function clientAddress(request) {
@@ -99,34 +117,44 @@ export function createGatewayServer({
 } = {}) {
   const requestWindows = new Map();
   return http.createServer(async (request, response) => {
+    const headers = corsHeaders(request);
+    console.log(`[gateway] ${request.method} ${request.url} origin=${request.headers.origin || 'none'}`);
+
+    if (request.method === 'OPTIONS' && (request.url === '/health' || request.url === '/v1/ai')) {
+      response.writeHead(204, headers);
+      response.end();
+      return;
+    }
+
     if (request.method === 'GET' && request.url === '/health') {
-      writeJson(response, 200, { status: 'ok' });
+      writeJson(response, 200, { status: 'ok' }, headers);
       return;
     }
 
     if (request.method !== 'POST' || request.url !== '/v1/ai') {
-      writeJson(response, 404, { error: 'Not found.' });
+      writeJson(response, 404, { error: 'Not found.' }, headers);
       return;
     }
 
     if (!authToken || request.headers.authorization !== `Bearer ${authToken}`) {
-      writeJson(response, 401, { error: 'Unauthorized.' });
+      writeJson(response, 401, { error: 'Unauthorized.' }, headers);
       return;
     }
 
     if (isRateLimited(clientAddress(request), requestWindows)) {
-      writeJson(response, 429, { error: 'Too many requests.' });
+      writeJson(response, 429, { error: 'Too many requests.' }, headers);
       return;
     }
 
     try {
       const body = validateRequest(await readJson(request));
       const output = await callOpenAi(body.capability, body.input, openAiApiKey, openAiModel, fetcher);
-      writeJson(response, 200, { capability: body.capability, output, model: openAiModel });
+      writeJson(response, 200, { capability: body.capability, output, model: openAiModel }, headers);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'AI provider request failed.';
+      console.error(`[gateway] ${request.method} ${request.url} failed: ${message}`);
       const status = message === 'AI gateway is not configured.' ? 503 : message === 'Too many requests.' ? 429 : 400;
-      writeJson(response, status, { error: message });
+      writeJson(response, status, { error: message }, headers);
     }
   });
 }

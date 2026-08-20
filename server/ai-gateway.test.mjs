@@ -31,6 +31,26 @@ test('health remains available without authentication', async () => {
   });
 });
 
+test('allows the local web origin and handles browser preflight', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/v1/ai`, {
+      method: 'OPTIONS',
+      headers: { Origin: 'http://localhost:8081', 'Access-Control-Request-Headers': 'authorization,content-type' },
+    });
+    assert.equal(response.status, 204);
+    assert.equal(response.headers.get('access-control-allow-origin'), 'http://localhost:8081');
+    assert.equal(response.headers.get('access-control-allow-headers'), 'Authorization, Content-Type');
+  });
+});
+
+test('does not grant CORS access to an unknown origin', async () => {
+  await withServer(async (baseUrl) => {
+    const response = await fetch(`${baseUrl}/health`, { headers: { Origin: 'https://untrusted.example' } });
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get('access-control-allow-origin'), null);
+  });
+});
+
 test('rejects unauthenticated AI requests', async () => {
   await withServer(async (baseUrl) => {
     const response = await fetch(`${baseUrl}/v1/ai`, {
