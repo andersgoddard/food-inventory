@@ -4,7 +4,7 @@ import { pathToFileURL } from 'node:url';
 
 const maxBodyBytes = 8 * 1024 * 1024;
 const maxRequestsPerMinute = 30;
-const capabilities = new Set(['food_scan', 'recipe_suggestions', 'meal_planning']);
+const capabilities = new Set(['food_scan', 'receipt_scan', 'recipe_suggestions', 'meal_planning']);
 const allowedOrigins = new Set(
   (process.env.AI_GATEWAY_ALLOWED_ORIGINS || 'http://localhost:8081,http://127.0.0.1:8081')
     .split(',')
@@ -57,6 +57,8 @@ function validateRequest(body) {
 function systemInstruction(capability) {
   const outputContract = capability === 'food_scan'
     ? 'Return exactly {"candidates":[{"photoId":string,"name":string,"category":string,"quantity":number|null,"unit":string|null,"confidence":number}]}. Use the supplied photoId for every candidate. Return candidates, never items.'
+    : capability === 'receipt_scan'
+    ? 'Return exactly {"receipt":{"merchantName":string|null,"purchaseDate":string|null,"currency":string|null,"subtotal":number|null,"tax":number|null,"total":number|null,"confidence":number},"lines":[{"rawDescription":string,"normalizedName":string,"category":string|null,"quantity":number|null,"unit":string|null,"unitPrice":number|null,"lineTotal":number|null,"confidence":number}]}. Return lines, never items.'
     : 'Return exactly {"suggestions":[{"title":string,"summary":string,"servings":number,"preparationMinutes":number|null,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null,"substitution":string|null}],"steps":[string],"expiryPriority":"high"|"normal"|"none","confidence":number}]}. Return suggestions, never recipes.';
   return [
     'You are an internal capability used by a household food inventory application.',
@@ -94,7 +96,7 @@ function normalizeCapabilityOutput(capability, output, input) {
 
 async function callOpenAi(capability, input, openAiApiKey, openAiModel, fetcher) {
   if (!openAiApiKey) throw new Error('AI gateway is not configured.');
-  const userContent = capability === 'food_scan' && Array.isArray(input?.photos)
+  const userContent = ['food_scan', 'receipt_scan'].includes(capability) && Array.isArray(input?.photos)
     ? [
         {
           type: 'input_text',
