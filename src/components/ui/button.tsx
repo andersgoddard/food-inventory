@@ -3,11 +3,10 @@
  * Reusable themed button with variants
  */
 
-import { Pressable, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { ThemedText } from '../themed-text';
-import { ThemedView } from '../themed-view';
-import { Colors, Spacing } from '@/constants/theme';
+import { Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
+import { Platform, Pressable, StyleSheet, ViewStyle } from 'react-native';
+import { ThemedText } from '../themed-text';
 
 export interface ButtonProps {
   onPress: () => void;
@@ -91,6 +90,7 @@ export function Button({
   return (
     <Pressable
       onPress={onPress}
+      {...(Platform.OS === 'web' ? { onClick: onPress } : {})}
       disabled={disabled}
       testID={testID}
       style={({ pressed }) => [

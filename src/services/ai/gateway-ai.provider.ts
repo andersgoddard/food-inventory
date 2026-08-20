@@ -17,7 +17,7 @@ export class GatewayAiProvider implements AiProvider {
   private readonly baseUrl: string;
 
   constructor(private readonly options: AiGatewayProviderOptions) {
-    this.fetcher = options.fetcher || fetch;
+    this.fetcher = options.fetcher || globalThis.fetch.bind(globalThis);
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
     this.baseUrl = options.baseUrl.replace(/\/+$/, '');
   }
@@ -40,10 +40,12 @@ export class GatewayAiProvider implements AiProvider {
   }
 
   async request(request: AiRequest): Promise<AiResponse> {
+    console.log('[ai-gateway-client] request started', { baseUrl: this.baseUrl, capability: request.capability });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
+      console.log('[ai-gateway-client] sending POST /v1/ai');
       const response = await this.fetcher(`${this.baseUrl}/v1/ai`, {
         method: 'POST',
         headers: {
@@ -53,8 +55,13 @@ export class GatewayAiProvider implements AiProvider {
         body: JSON.stringify(request),
         signal: controller.signal,
       });
+      console.log('[ai-gateway-client] response received', { status: response.status, ok: response.ok });
 
       const body = await response.json().catch(() => null);
+      console.log('[ai-gateway-client] response JSON read', {
+        bodyType: typeof body,
+        error: typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string' ? body.error : undefined,
+      });
       if (!response.ok) {
         throw new AiProviderError(
           typeof body === 'object' && body !== null && 'error' in body && typeof body.error === 'string'
@@ -65,11 +72,15 @@ export class GatewayAiProvider implements AiProvider {
       }
 
       try {
-        return parseAiGatewayResponse(body);
+        const parsed = parseAiGatewayResponse(body);
+        console.log('[ai-gateway-client] response validated', { model: parsed.model });
+        return parsed;
       } catch {
+        console.error('[ai-gateway-client] response validation failed');
         throw new AiProviderError('AI gateway returned an invalid response.', 'validation');
       }
     } catch (error) {
+      console.error('[ai-gateway-client] request failed', error);
       if (error instanceof AiProviderError) throw error;
       if (error instanceof DOMException && error.name === 'AbortError') {
         throw new AiProviderError('AI gateway request timed out.', 'timeout');

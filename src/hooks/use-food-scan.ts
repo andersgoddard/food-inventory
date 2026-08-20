@@ -27,18 +27,25 @@ export function useFoodScan() {
   }, []);
 
   const analyze = useCallback(async () => {
+    console.log('[food-scan] analyze entered', { photoCount: photos.length, location });
     if (photos.length === 0) {
+      console.log('[food-scan] analyze stopped: no photos');
       setError('Add at least one food photo first.');
       return;
     }
 
     try {
+      console.log('[food-scan] setting status to analysing');
       setStatus('analysing');
       setError(null);
+      console.log('[food-scan] calling provider.analyze');
       const results = await provider.analyze(photos, location);
+      console.log('[food-scan] provider.analyze resolved', { candidateCount: results.length });
       setCandidates(results);
       setStatus('review');
+      console.log('[food-scan] status set to review');
     } catch (scanError) {
+      console.error('[food-scan] analyze failed', scanError);
       setStatus('failed');
       setError(scanError instanceof Error ? scanError.message : 'Food scan failed');
     }

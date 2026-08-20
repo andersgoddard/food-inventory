@@ -88,6 +88,13 @@ export default function ScanFoodScreen() {
     }
   };
 
+  const handleAnalyze = () => {
+    console.log('[food-scan] Analyse photos pressed', { photoCount: photos.length, status });
+    console.log('[food-scan] Calling analyze()');
+    void analyze();
+    console.log('[food-scan] analyze() dispatched');
+  };
+
   const isAnalysing = status === 'analysing' || status === 'confirming';
 
   return (
@@ -120,9 +127,10 @@ export default function ScanFoodScreen() {
           )}
 
           <Button
-            title={status === 'review' ? 'Analyse again' : 'Analyse photos'}
-            onPress={analyze}
+            title={isAnalysing ? 'Analysing photos...' : status === 'review' ? 'Analyse again' : 'Analyse photos'}
+            onPress={handleAnalyze}
             disabled={photos.length === 0 || isAnalysing}
+            testID="analyse-photos-button"
           />
 
           {error && <FeedbackBanner message={error} tone="error" />}

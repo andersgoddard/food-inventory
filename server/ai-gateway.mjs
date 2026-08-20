@@ -55,11 +55,15 @@ function validateRequest(body) {
 }
 
 function systemInstruction(capability) {
+  const outputContract = capability === 'food_scan'
+    ? 'Return exactly {"candidates":[{"photoId":string,"name":string,"category":string,"quantity":number|null,"unit":string|null,"confidence":number}]}. Use the supplied photoId for every candidate. Return candidates, never items.'
+    : 'Return exactly {"suggestions":[{"title":string,"summary":string,"servings":number,"preparationMinutes":number|null,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null,"substitution":string|null}],"steps":[string],"expiryPriority":"high"|"normal"|"none","confidence":number}]}. Return suggestions, never recipes.';
   return [
     'You are an internal capability used by a household food inventory application.',
     'Return only a valid JSON object suitable for application validation.',
     'Do not claim certainty that the input does not support.',
     `Capability: ${capability}`,
+    outputContract,
   ].join(' ');
 }
 
@@ -70,6 +74,22 @@ function extractJson(responseBody) {
     ?.find((item) => typeof item.text === 'string')?.text;
   if (typeof text !== 'string') throw new Error('AI provider returned no structured output.');
   return JSON.parse(text);
+}
+
+function normalizeCapabilityOutput(capability, output, input) {
+  if (capability === 'food_scan' && output && typeof output === 'object' && Array.isArray(output.items) && !Array.isArray(output.candidates)) {
+    const photoIds = Array.isArray(input?.photos) ? input.photos.map((photo) => photo.photoId).filter(Boolean) : [];
+    return {
+      candidates: output.items.map((item, index) => ({
+        ...item,
+        photoId: item.photoId || photoIds[index] || photoIds[0] || 'unknown-photo',
+      })),
+    };
+  }
+  if (capability !== 'food_scan' && output && typeof output === 'object' && Array.isArray(output.recipes) && !Array.isArray(output.suggestions)) {
+    return { ...output, suggestions: output.recipes };
+  }
+  return output;
 }
 
 async function callOpenAi(capability, input, openAiApiKey, openAiModel, fetcher) {
@@ -105,8 +125,11 @@ async function callOpenAi(capability, input, openAiApiKey, openAiModel, fetcher)
     }),
   });
   const body = await providerResponse.json().catch(() => null);
-  if (!providerResponse.ok) throw new Error('AI provider request failed.');
-  return extractJson(body);
+  if (!providerResponse.ok) {
+    const providerMessage = typeof body?.error?.message === 'string' ? body.error.message : 'AI provider request failed.';
+    throw new Error(`AI provider request failed (${providerResponse.status}): ${providerMessage}`);
+  }
+  return normalizeCapabilityOutput(capability, extractJson(body), input);
 }
 
 export function createGatewayServer({

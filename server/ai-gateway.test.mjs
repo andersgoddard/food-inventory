@@ -87,3 +87,30 @@ test('accepts authenticated valid requests and preserves validation', async () =
     assert.equal(invalid.status, 400);
   });
 });
+
+test('reports upstream provider status without exposing credentials', async () => {
+  await withServer(async (baseUrl) => {
+    const server = createGatewayServer({
+      authToken,
+      openAiApiKey: 'test-openai-key',
+      fetcher: async () => ({
+        ok: false,
+        status: 400,
+        json: async () => ({ error: { message: 'invalid image input' } }),
+      }),
+    });
+    await new Promise((resolve) => server.listen(0, resolve));
+    const address = server.address();
+    try {
+      const response = await fetch(`http://127.0.0.1:${address.port}/v1/ai`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${authToken}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ capability: 'food_scan', input: {} }),
+      });
+      assert.equal(response.status, 400);
+      assert.deepEqual(await response.json(), { error: 'AI provider request failed (400): invalid image input' });
+    } finally {
+      await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+});
