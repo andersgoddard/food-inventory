@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { AiCapability, AiResponse } from './ai-capability';
 
-const capabilitySchema = z.enum(['food_scan', 'recipe_suggestions', 'meal_planning']);
+const capabilitySchema = z.enum(['food_scan', 'receipt_scan', 'recipe_suggestions', 'meal_planning']);
 
 export const aiGatewayResponseSchema = z.object({
   capability: capabilitySchema,

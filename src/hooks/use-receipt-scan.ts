@@ -1,5 +1,5 @@
 import { inventoryService } from '@/services';
-import { MockReceiptScanProvider } from '@/services/ai/mock-receipt-scan.provider';
+import { OpenAiReceiptScanProvider } from '@/services/ai/openai-receipt-scan.provider';
 import { ReceiptScanProvider } from '@/services/ai/receipt-scan.provider';
 import { CreateInventoryItemInput, InventoryLocation } from '@/types/inventory';
 import {
@@ -11,7 +11,7 @@ import {
 import { getCurrentISOString } from '@/utils/date';
 import { useCallback, useState } from 'react';
 
-const provider: ReceiptScanProvider = new MockReceiptScanProvider();
+const provider: ReceiptScanProvider = new OpenAiReceiptScanProvider();
 
 export function useReceiptScan() {
   const [photos, setPhotos] = useState<ReceiptPhoto[]>([]);

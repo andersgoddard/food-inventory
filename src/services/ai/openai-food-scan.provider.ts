@@ -47,7 +47,7 @@ async function encodeBrowserImage(blob: Blob, photoId: string): Promise<string> 
   }
 }
 
-async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
+export async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
   console.log('[food-scan] image fetch started', { photoId: photo.id, uriScheme: photo.uri.split(':')[0] });
   const response = await fetch(photo.uri);
   console.log('[food-scan] image fetch completed', { photoId: photo.id, ok: response.ok, status: response.status });

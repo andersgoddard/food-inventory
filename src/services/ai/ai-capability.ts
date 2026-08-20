@@ -1,4 +1,4 @@
-export type AiCapability = 'food_scan' | 'recipe_suggestions' | 'meal_planning';
+export type AiCapability = 'food_scan' | 'receipt_scan' | 'recipe_suggestions' | 'meal_planning';
 
 export interface AiRequest {
   capability: AiCapability;

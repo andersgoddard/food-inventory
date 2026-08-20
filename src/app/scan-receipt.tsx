@@ -125,7 +125,7 @@ export default function ScanReceiptScreen() {
             </ThemedView>
           )}
 
-          <Button title="Extract receipt" onPress={analyze} disabled={photos.length === 0 || isBusy} />
+          <Button title={isBusy ? 'Extracting receipt...' : 'Extract receipt'} onPress={() => void analyze()} disabled={photos.length === 0 || isBusy} />
           {error && <FeedbackBanner message={error} tone="error" />}
 
           {status === 'review' && receipt && (
