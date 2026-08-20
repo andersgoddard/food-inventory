@@ -58,6 +58,15 @@ describe('GatewayAiProvider', () => {
     }));
   });
 
+  it('normalizes a trailing slash in the gateway URL', async () => {
+    const fetcher = jest.fn().mockResolvedValue(response({ status: 'ok' }));
+    const provider = new GatewayAiProvider({ baseUrl: 'https://ai.example.test/', fetcher });
+
+    await provider.healthCheck();
+
+    expect(fetcher).toHaveBeenCalledWith('https://ai.example.test/health', expect.any(Object));
+  });
+
   it('rejects malformed gateway responses before application use', async () => {
     const provider = new GatewayAiProvider({
       baseUrl: 'https://ai.example.test',

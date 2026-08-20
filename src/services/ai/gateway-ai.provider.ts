@@ -14,10 +14,12 @@ export interface AiGatewayProviderOptions {
 export class GatewayAiProvider implements AiProvider {
   private readonly fetcher: typeof fetch;
   private readonly timeoutMs: number;
+  private readonly baseUrl: string;
 
   constructor(private readonly options: AiGatewayProviderOptions) {
     this.fetcher = options.fetcher || fetch;
     this.timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS;
+    this.baseUrl = options.baseUrl.replace(/\/+$/, '');
   }
 
   async healthCheck(): Promise<boolean> {
@@ -25,7 +27,7 @@ export class GatewayAiProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
 
     try {
-      const response = await this.fetcher(`${this.options.baseUrl}/health`, {
+      const response = await this.fetcher(`${this.baseUrl}/health`, {
         method: 'GET',
         signal: controller.signal,
       });
@@ -42,7 +44,7 @@ export class GatewayAiProvider implements AiProvider {
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
 
     try {
-      const response = await this.fetcher(`${this.options.baseUrl}/v1/ai`, {
+      const response = await this.fetcher(`${this.baseUrl}/v1/ai`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
