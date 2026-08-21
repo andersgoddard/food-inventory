@@ -1,10 +1,12 @@
+import { inventoryCategorySchema } from '@/services/inventory/inventory.schemas';
 import { ReceiptScanResult } from '@/types/receipt-scan';
 import { generateUUID } from '@/utils/id';
 import { z } from 'zod';
 import { parseLenientArray } from './lenient-array.schema';
 
 const unitSchema = z.enum(['g', 'kg', 'ml', 'l', 'unit', 'package']);
-const categorySchema = z.enum(['dairy', 'meat', 'fish', 'fruit', 'vegetables', 'grains', 'canned', 'frozen', 'snacks', 'beverages', 'condiments', 'other']);
+// The app's real category taxonomy is the source of truth; keep this schema in sync with it.
+const categorySchema = inventoryCategorySchema;
 
 // The model sometimes returns a container/serving noun instead of a measurement unit; map those to the accepted enum.
 const UNIT_ALIASES: Record<string, z.infer<typeof unitSchema>> = {
@@ -41,27 +43,38 @@ const flexibleUnitSchema = z.preprocess((value) => {
   return null;
 }, unitSchema.nullable());
 
-// The model sometimes returns singular or synonym category names; map those to the accepted enum.
+// The model sometimes returns singular, synonym, or generic category names; map those to the accepted enum.
 const CATEGORY_ALIASES: Record<string, z.infer<typeof categorySchema>> = {
-  beverage: 'beverages',
-  drink: 'beverages',
-  drinks: 'beverages',
-  condiment: 'condiments',
-  sauce: 'condiments',
-  sauces: 'condiments',
-  seasoning: 'condiments',
-  seasonings: 'condiments',
-  spice: 'condiments',
-  spices: 'condiments',
-  cereal: 'grains',
-  cereals: 'grains',
-  grain: 'grains',
-  pasta: 'grains',
-  bread: 'grains',
+  beverage: 'drinks',
+  beverages: 'drinks',
+  drink: 'drinks',
+  condiment: 'sauces_condiments',
+  condiments: 'sauces_condiments',
+  sauce: 'sauces_condiments',
+  sauces: 'sauces_condiments',
+  seasoning: 'herbs_spices',
+  seasonings: 'herbs_spices',
+  spice: 'herbs_spices',
+  spices: 'herbs_spices',
+  herb: 'herbs_spices',
+  herbs: 'herbs_spices',
+  cereal: 'grains_cereals',
+  cereals: 'grains_cereals',
+  grain: 'grains_cereals',
+  grains: 'grains_cereals',
+  pasta: 'grains_cereals',
+  bread: 'bakery',
+  baked: 'bakery',
+  baking: 'bakery',
+  canned: 'tinned_jarred',
+  tinned: 'tinned_jarred',
+  jarred: 'tinned_jarred',
   vegetable: 'vegetables',
   fruits: 'fruit',
   meats: 'meat',
-  seafood: 'fish',
+  fish: 'fish_seafood',
+  seafood: 'fish_seafood',
+  egg: 'eggs',
   snack: 'snacks',
 };
 

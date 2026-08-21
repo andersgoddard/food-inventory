@@ -14,6 +14,7 @@ export function useFoodScan() {
   const [candidates, setCandidates] = useState<FoodScanCandidate[]>([]);
   const [status, setStatus] = useState<FoodScanStatus>('draft');
   const [error, setError] = useState<string | null>(null);
+  const [progressMessage, setProgressMessage] = useState<string | null>(null);
 
   const addPhotos = useCallback((newPhotos: ScanPhoto[]) => {
     setPhotos((current) => [...current, ...newPhotos].slice(0, 6));
@@ -34,10 +35,22 @@ export function useFoodScan() {
       return;
     }
 
+    const photoCount = photos.length;
+    const startedAt = Date.now();
+    const describeProgress = () => {
+      const elapsedSeconds = (Date.now() - startedAt) / 1000;
+      if (elapsedSeconds < 5) return photoCount > 1 ? `Uploading ${photoCount} photos…` : 'Uploading photo…';
+      if (elapsedSeconds < 20) return photoCount > 1 ? `Analysing ${photoCount} photos with AI…` : 'Analysing photo with AI…';
+      return 'Still working — multiple or larger photos can take longer…';
+    };
+
+    let progressTimer: ReturnType<typeof setInterval> | null = null;
     try {
       console.log('[food-scan] setting status to analysing');
       setStatus('analysing');
       setError(null);
+      setProgressMessage(describeProgress());
+      progressTimer = setInterval(() => setProgressMessage(describeProgress()), 1000);
       console.log('[food-scan] calling provider.analyze');
       const results = await provider.analyze(photos, location);
       console.log('[food-scan] provider.analyze resolved', { candidateCount: results.length });
@@ -48,6 +61,9 @@ export function useFoodScan() {
       console.error('[food-scan] analyze failed', scanError);
       setStatus('failed');
       setError(scanError instanceof Error ? scanError.message : 'Food scan failed');
+    } finally {
+      if (progressTimer) clearInterval(progressTimer);
+      setProgressMessage(null);
     }
   }, [location, photos]);
 
@@ -124,6 +140,7 @@ export function useFoodScan() {
     candidates,
     status,
     error,
+    progressMessage,
     setLocation,
     addPhotos,
     removePhoto,

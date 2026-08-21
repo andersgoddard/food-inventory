@@ -16,6 +16,7 @@ import { Spacing } from '@/constants/theme';
 import { useReceiptScan } from '@/hooks/use-receipt-scan';
 import { InventoryCategory, InventoryUnit } from '@/types/inventory';
 import { generateUUID } from '@/utils/id';
+import { resizeImageForUpload } from '@/utils/image';
 
 export default function ScanReceiptScreen() {
   const router = useRouter();
@@ -37,16 +38,21 @@ export default function ScanReceiptScreen() {
   } = useReceiptScan();
   const [isPicking, setIsPicking] = useState(false);
 
-  const addPickedAssets = (assets: ImagePicker.ImagePickerAsset[]) => {
-    addPhotos(
-      assets.map((asset) => ({
-        id: generateUUID(),
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-        fileName: asset.fileName,
-      }))
+  const addPickedAssets = async (assets: ImagePicker.ImagePickerAsset[]) => {
+    // Receipts need more resolution than food photos to keep line-item text legible.
+    const resized = await Promise.all(
+      assets.map(async (asset) => {
+        const image = await resizeImageForUpload(asset, { maxDimension: 2000, compress: 0.8 });
+        return {
+          id: generateUUID(),
+          uri: image.uri,
+          width: image.width,
+          height: image.height,
+          fileName: asset.fileName,
+        };
+      })
     );
+    addPhotos(resized);
   };
 
   const pickReceipt = async () => {
@@ -58,7 +64,7 @@ export default function ScanReceiptScreen() {
         selectionLimit: 4,
         quality: 0.7,
       });
-      if (!result.canceled) addPickedAssets(result.assets);
+      if (!result.canceled) await addPickedAssets(result.assets);
     } catch (pickerError) {
       Alert.alert('Photo selection failed', pickerError instanceof Error ? pickerError.message : 'Unable to select receipt photos');
     } finally {
@@ -75,7 +81,7 @@ export default function ScanReceiptScreen() {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-      if (!result.canceled) addPickedAssets(result.assets);
+      if (!result.canceled) await addPickedAssets(result.assets);
     } catch (pickerError) {
       Alert.alert('Camera failed', pickerError instanceof Error ? pickerError.message : 'Unable to take a receipt photo');
     } finally {

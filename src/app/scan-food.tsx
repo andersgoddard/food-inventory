@@ -16,6 +16,7 @@ import { Spacing } from '@/constants/theme';
 import { useFoodScan } from '@/hooks/use-food-scan';
 import { InventoryCategory, InventoryUnit } from '@/types/inventory';
 import { generateUUID } from '@/utils/id';
+import { resizeImageForUpload } from '@/utils/image';
 
 export default function ScanFoodScreen() {
   const router = useRouter();
@@ -25,6 +26,7 @@ export default function ScanFoodScreen() {
     candidates,
     status,
     error,
+    progressMessage,
     setLocation,
     addPhotos,
     removePhoto,
@@ -35,16 +37,20 @@ export default function ScanFoodScreen() {
   } = useFoodScan();
   const [isPicking, setIsPicking] = useState(false);
 
-  const addPickedAssets = (assets: ImagePicker.ImagePickerAsset[]) => {
-    addPhotos(
-      assets.map((asset) => ({
-        id: generateUUID(),
-        uri: asset.uri,
-        width: asset.width,
-        height: asset.height,
-        fileName: asset.fileName,
-      }))
+  const addPickedAssets = async (assets: ImagePicker.ImagePickerAsset[]) => {
+    const resized = await Promise.all(
+      assets.map(async (asset) => {
+        const image = await resizeImageForUpload(asset);
+        return {
+          id: generateUUID(),
+          uri: image.uri,
+          width: image.width,
+          height: image.height,
+          fileName: asset.fileName,
+        };
+      })
     );
+    addPhotos(resized);
   };
 
   const pickFromLibrary = async () => {
@@ -56,7 +62,7 @@ export default function ScanFoodScreen() {
         selectionLimit: 6,
         quality: 0.7,
       });
-      if (!result.canceled) addPickedAssets(result.assets);
+      if (!result.canceled) await addPickedAssets(result.assets);
     } catch (pickerError) {
       Alert.alert('Photo selection failed', pickerError instanceof Error ? pickerError.message : 'Unable to select photos');
     } finally {
@@ -73,7 +79,7 @@ export default function ScanFoodScreen() {
         return;
       }
       const result = await ImagePicker.launchCameraAsync({ quality: 0.7 });
-      if (!result.canceled) addPickedAssets(result.assets);
+      if (!result.canceled) await addPickedAssets(result.assets);
     } catch (pickerError) {
       Alert.alert('Camera failed', pickerError instanceof Error ? pickerError.message : 'Unable to take a photo');
     } finally {
@@ -132,6 +138,12 @@ export default function ScanFoodScreen() {
             disabled={photos.length === 0 || isAnalysing}
             testID="analyse-photos-button"
           />
+
+          {isAnalysing && progressMessage && (
+            <ThemedText type="small" themeColor="textSecondary" style={styles.progressMessage}>
+              {progressMessage}
+            </ThemedText>
+          )}
 
           {error && <FeedbackBanner message={error} tone="error" />}
 
@@ -203,6 +215,7 @@ const styles = StyleSheet.create({
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   actionRow: { flexDirection: 'row', gap: Spacing.two },
   action: { flex: 1 },
+  progressMessage: { textAlign: 'center' },
   photoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   photoCell: { width: '31%', gap: Spacing.one },
   photo: { width: '100%', aspectRatio: 1, borderRadius: Spacing.two },

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import http from 'node:http';
 import { pathToFileURL } from 'node:url';
 
-const maxBodyBytes = 8 * 1024 * 1024;
+const maxBodyBytes = 24 * 1024 * 1024;
 const maxRequestsPerMinute = 30;
 const capabilities = new Set(['food_scan', 'receipt_scan', 'recipe_suggestions', 'meal_planning']);
 const allowedOrigins = new Set(
@@ -54,12 +54,15 @@ function validateRequest(body) {
   return body;
 }
 
+const CATEGORY_ENUM = '"fruit"|"vegetables"|"meat"|"fish_seafood"|"dairy"|"eggs"|"grains_cereals"|"bakery"|"tinned_jarred"|"frozen"|"snacks"|"sauces_condiments"|"herbs_spices"|"drinks"|"other"';
+const UNIT_ENUM = '"g"|"kg"|"ml"|"l"|"unit"|"package"';
+
 function systemInstruction(capability) {
   const outputContract = capability === 'food_scan'
-    ? 'Return exactly {"candidates":[{"photoId":string,"name":string,"category":string,"quantity":number|null,"unit":string|null,"confidence":number}]}. Use the supplied photoId for every candidate. Return candidates, never items.'
+    ? `Return exactly {"candidates":[{"photoId":string,"name":string,"category":${CATEGORY_ENUM},"quantity":number|null,"unit":${UNIT_ENUM}|null,"confidence":number}]}. category must be exactly one of the listed values. Use the supplied photoId for every candidate. Return candidates, never items.`
     : capability === 'receipt_scan'
-    ? 'Return exactly {"receipt":{"merchantName":string|null,"purchaseDate":string|null,"currency":string|null,"subtotal":number|null,"tax":number|null,"total":number|null,"confidence":number},"lines":[{"rawDescription":string,"normalizedName":string,"category":string|null,"quantity":number|null,"unit":string|null,"unitPrice":number|null,"lineTotal":number|null,"confidence":number}]}. Return lines, never items.'
-    : 'Return exactly {"suggestions":[{"title":string,"summary":string,"servings":number,"preparationMinutes":number|null,"ingredients":[{"name":string,"quantity":number|null,"unit":string|null,"substitution":string|null}],"steps":[string],"expiryPriority":"high"|"normal"|"none","confidence":number}]}. Return suggestions, never recipes.';
+    ? `Return exactly {"receipt":{"merchantName":string|null,"purchaseDate":string|null,"currency":string|null,"subtotal":number|null,"tax":number|null,"total":number|null,"confidence":number},"lines":[{"rawDescription":string,"normalizedName":string,"category":${CATEGORY_ENUM}|null,"quantity":number|null,"unit":${UNIT_ENUM}|null,"unitPrice":number|null,"lineTotal":number|null,"confidence":number}]}. category must be exactly one of the listed values or null. Return lines, never items.`
+    : `Return exactly {"suggestions":[{"title":string,"summary":string,"servings":number,"preparationMinutes":number|null,"ingredients":[{"name":string,"quantity":number|null,"unit":${UNIT_ENUM}|null,"substitution":string|null}],"steps":[string],"expiryPriority":"high"|"normal"|"none","confidence":number}]}. Return suggestions, never recipes.`;
   return [
     'You are an internal capability used by a household food inventory application.',
     'Return only a valid JSON object suitable for application validation.',
