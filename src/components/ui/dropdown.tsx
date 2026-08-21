@@ -91,7 +91,7 @@ export function Dropdown<T>({
           <View
             style={[
               styles.menu,
-              { backgroundColor: theme.background },
+              { backgroundColor: theme.backgroundElement },
             ]}
           >
             <FlatList

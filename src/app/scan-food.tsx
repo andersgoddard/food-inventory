@@ -1,7 +1,7 @@
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CategorySelector } from '@/components/inventory/category-selector';
@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
-    paddingTop: Platform.OS === 'web' ? 88 : Spacing.three,
+    paddingTop: Spacing.three,
   },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   actionRow: { flexDirection: 'row', gap: Spacing.two },

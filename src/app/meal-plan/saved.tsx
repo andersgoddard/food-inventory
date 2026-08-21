@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -73,8 +73,8 @@ export default function SavedMealPlansScreen() {
             </ThemedView>
           )}
           <Button title="Plan my week" onPress={() => router.replace('/meal-plan/preferences')} />
-          <Pressable onPress={() => router.replace('/')} style={styles.backAction}>
-            <ThemedText type="small" themeColor="textSecondary">Back to dashboard</ThemedText>
+          <Pressable onPress={() => router.replace('/meals')} style={styles.backAction}>
+            <ThemedText type="small" themeColor="textSecondary">Back to Meals</ThemedText>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -93,7 +93,7 @@ export default function SavedMealPlansScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
   list: { gap: Spacing.two },

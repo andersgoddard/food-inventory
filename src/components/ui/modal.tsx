@@ -64,7 +64,7 @@ export function ModalDialog({
         onPress={onClose}
       >
         <Pressable
-          style={[styles.modalContent, { backgroundColor: theme.background }]}
+          style={[styles.modalContent, { backgroundColor: theme.backgroundElement }]}
           onPress={(e) => e.stopPropagation()}
         >
           <ThemedText type="title" style={styles.title}>

@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -120,8 +120,8 @@ export default function MealPlanPreferencesScreen() {
           {error && <FeedbackBanner message={error} tone="error" />}
           <Button title="Generate plan" onPress={handleGenerate} testID="generate-plan-button" />
           <Button title="Saved plans" variant="secondary" onPress={() => router.push('/meal-plan/saved')} />
-          <Pressable onPress={() => router.replace('/')} style={styles.backAction}>
-            <ThemedText type="small" themeColor="textSecondary">Back to dashboard</ThemedText>
+          <Pressable onPress={() => router.replace('/meals')} style={styles.backAction}>
+            <ThemedText type="small" themeColor="textSecondary">Back to Meals</ThemedText>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     paddingHorizontal: Spacing.four,
-    paddingTop: Platform.OS === 'web' ? 88 : Spacing.three,
+    paddingTop: Spacing.three,
   },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   section: { gap: Spacing.three, padding: Spacing.three, borderRadius: Spacing.two },

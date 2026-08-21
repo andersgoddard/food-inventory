@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -124,7 +124,7 @@ export default function RecipeIdeasScreen() {
               ))}
             </ThemedView>
           )}
-          <Button title="Back to Dashboard" variant="secondary" onPress={() => router.replace('/')} />
+          <Button title="Back to Meals" variant="secondary" onPress={() => router.replace('/meals')} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -133,7 +133,7 @@ export default function RecipeIdeasScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   controls: { gap: Spacing.three, padding: Spacing.three, borderRadius: Spacing.two },
   row: { flexDirection: 'row', gap: Spacing.two },

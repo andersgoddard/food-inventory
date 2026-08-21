@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { MealPlanDayCard } from '@/components/meal-plan/meal-plan-day-card';
@@ -168,8 +168,8 @@ export default function MealPlanScreen() {
           )}
 
           {(error || routeError) && !loading && <Button title="Try again" variant="secondary" onPress={handleRetry} />}
-          <Pressable accessibilityRole="button" onPress={() => router.replace('/')} style={styles.backAction}>
-            <ThemedText type="small" themeColor="textSecondary">Back to dashboard</ThemedText>
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/meals')} style={styles.backAction}>
+            <ThemedText type="small" themeColor="textSecondary">Back to Meals</ThemedText>
           </Pressable>
         </ScrollView>
       </SafeAreaView>
@@ -222,7 +222,7 @@ export default function MealPlanScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   pageHeader: { gap: Spacing.one },
   planSummary: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#EEF4FF' },

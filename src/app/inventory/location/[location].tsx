@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { InventoryFilter } from '@/components/inventory/inventory-filter';
@@ -70,7 +70,7 @@ export default function InventoryLocationScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingTop: Platform.OS === 'web' ? 88 : 0 },
+  safeArea: { flex: 1 },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: Spacing.four, gap: Spacing.two },
   back: { paddingVertical: Spacing.two },

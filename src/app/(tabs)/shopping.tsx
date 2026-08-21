@@ -1,6 +1,6 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
+import { Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ThemedText } from '@/components/themed-text';
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { FeedbackBanner } from '@/components/ui/feedback-banner';
 import { Input } from '@/components/ui/input';
 import { UnitSelector } from '@/components/inventory/unit-selector';
-import { Spacing } from '@/constants/theme';
+import { BottomTabInset, Spacing } from '@/constants/theme';
 import { useShopping } from '@/hooks/use-shopping';
 import { InventoryUnit } from '@/types/inventory';
 import { ShoppingItemStatus } from '@/types/shopping';
@@ -75,7 +75,7 @@ export default function ShoppingScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ThemedText type="title">Shopping list</ThemedText>
+          <ThemedText type="title">Shopping</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">What you need to buy for your meal plan.</ThemedText>
           {error && <FeedbackBanner message={error} tone="error" />}
           {params.message && <FeedbackBanner message={params.message} />}
@@ -201,7 +201,6 @@ export default function ShoppingScreen() {
               ))}
             </ThemedView>
           )}
-          <Pressable onPress={() => router.replace('/')} style={styles.back}><ThemedText type="small" themeColor="textSecondary">Back to dashboard</ThemedText></Pressable>
         </ScrollView>
       </SafeAreaView>
     </ThemedView>
@@ -210,8 +209,8 @@ export default function ShoppingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
-  content: { gap: Spacing.three, paddingBottom: Spacing.six },
+  safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Spacing.three },
+  content: { gap: Spacing.three, paddingBottom: Spacing.six + BottomTabInset },
   item: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#F7F8FA' },
   group: { gap: Spacing.two },
   itemName: { fontSize: 24, lineHeight: 30 },
@@ -225,5 +224,4 @@ const styles = StyleSheet.create({
   priorityToggle: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.two },
   savedSection: { gap: Spacing.two },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
-  back: { alignItems: 'center', paddingVertical: Spacing.two },
 });

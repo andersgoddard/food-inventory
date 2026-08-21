@@ -3,7 +3,7 @@
  * Reusable themed button with variants
  */
 
-import { Spacing } from '@/constants/theme';
+import { ControlHeight, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { Platform, Pressable, StyleSheet, ViewStyle } from 'react-native';
 import { ThemedText } from '../themed-text';
@@ -30,16 +30,16 @@ export function Button({
   const theme = useTheme();
 
   const getBackgroundColor = () => {
-    if (disabled) return theme.backgroundElement;
+    if (disabled) return theme.secondarySurface;
     switch (variant) {
       case 'primary':
-        return '#007AFF';
+        return theme.accent;
       case 'secondary':
-        return theme.backgroundElement;
+        return theme.secondarySurface;
       case 'danger':
-        return '#FF3B30';
+        return theme.destructive;
       default:
-        return '#007AFF';
+        return theme.accent;
     }
   };
 
@@ -62,11 +62,11 @@ export function Button({
       case 'small':
         return { paddingHorizontal: Spacing.two, paddingVertical: Spacing.one };
       case 'medium':
-        return { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two };
+        return { paddingHorizontal: Spacing.three, minHeight: ControlHeight.primaryButton };
       case 'large':
-        return { paddingHorizontal: Spacing.four, paddingVertical: Spacing.three };
+        return { paddingHorizontal: Spacing.four, minHeight: ControlHeight.primaryButton };
       default:
-        return { paddingHorizontal: Spacing.three, paddingVertical: Spacing.two };
+        return { paddingHorizontal: Spacing.three, minHeight: ControlHeight.primaryButton };
     }
   };
 
@@ -107,7 +107,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: Spacing.two,
+    borderRadius: Radius.control,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -4,7 +4,8 @@ import { Fonts, ThemeColor } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 
 export type ThemedTextProps = TextProps & {
-  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code';
+  type?: 'default' | 'title' | 'small' | 'smallBold' | 'subtitle' | 'link' | 'linkPrimary' | 'code'
+    | 'largeTitle' | 'sectionTitle' | 'headline' | 'body' | 'footnote' | 'caption';
   themeColor?: ThemeColor;
 };
 
@@ -23,6 +24,12 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
         type === 'link' && styles.link,
         type === 'linkPrimary' && styles.linkPrimary,
         type === 'code' && styles.code,
+        type === 'largeTitle' && styles.largeTitle,
+        type === 'sectionTitle' && styles.sectionTitle,
+        type === 'headline' && styles.headline,
+        type === 'body' && styles.body,
+        type === 'footnote' && styles.footnote,
+        type === 'caption' && styles.caption,
         style,
       ]}
       {...rest}
@@ -32,29 +39,29 @@ export function ThemedText({ style, type = 'default', themeColor, ...rest }: The
 
 const styles = StyleSheet.create({
   small: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 20,
-    fontWeight: 500,
+    fontWeight: '400',
   },
   smallBold: {
-    fontSize: 14,
+    fontSize: 15,
     lineHeight: 20,
-    fontWeight: 700,
+    fontWeight: '600',
   },
   default: {
-    fontSize: 16,
-    lineHeight: 24,
-    fontWeight: 500,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '400',
   },
   title: {
-    fontSize: 48,
-    fontWeight: 600,
-    lineHeight: 52,
+    fontSize: 34,
+    fontWeight: '700',
+    lineHeight: 40,
   },
   subtitle: {
-    fontSize: 32,
-    lineHeight: 44,
-    fontWeight: 600,
+    fontSize: 22,
+    lineHeight: 28,
+    fontWeight: '700',
   },
   link: {
     lineHeight: 30,
@@ -69,5 +76,37 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.mono,
     fontWeight: Platform.select({ android: 700 }) ?? 500,
     fontSize: 12,
+  },
+  // Explicit iOS-style hierarchy for new/redesigned screens - existing types above are kept for
+  // backwards compatibility rather than renamed across the whole app.
+  largeTitle: {
+    fontSize: 34,
+    fontWeight: '700',
+    lineHeight: 40,
+  },
+  sectionTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    lineHeight: 28,
+  },
+  headline: {
+    fontSize: 17,
+    fontWeight: '600',
+    lineHeight: 22,
+  },
+  body: {
+    fontSize: 17,
+    fontWeight: '400',
+    lineHeight: 22,
+  },
+  footnote: {
+    fontSize: 13,
+    fontWeight: '400',
+    lineHeight: 18,
+  },
+  caption: {
+    fontSize: 12,
+    fontWeight: '400',
+    lineHeight: 16,
   },
 });

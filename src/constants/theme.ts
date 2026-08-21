@@ -9,18 +9,36 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#000000',
-    background: '#ffffff',
-    backgroundElement: '#F0F0F3',
-    backgroundSelected: '#E0E1E6',
-    textSecondary: '#60646C',
+    text: '#1C1C1E',
+    textSecondary: '#6E6E73',
+    textTertiary: '#8E8E93',
+    background: '#F2F2F7',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#E5E5EA',
+    surface: '#FFFFFF',
+    secondarySurface: '#F8F8FA',
+    separator: '#D1D1D6',
+    border: '#E5E5EA',
+    accent: '#007AFF',
+    success: '#34C759',
+    warning: '#FF9500',
+    destructive: '#FF3B30',
   },
   dark: {
-    text: '#ffffff',
-    background: '#000000',
-    backgroundElement: '#212225',
-    backgroundSelected: '#2E3135',
+    text: '#FFFFFF',
     textSecondary: '#B0B4BA',
+    textTertiary: '#8E8E93',
+    background: '#000000',
+    backgroundElement: '#1C1C1E',
+    backgroundSelected: '#2E3135',
+    surface: '#1C1C1E',
+    secondarySurface: '#212225',
+    separator: '#38383A',
+    border: '#38383A',
+    accent: '#0A84FF',
+    success: '#32D74B',
+    warning: '#FF9F0A',
+    destructive: '#FF453A',
   },
 } as const;
 
@@ -61,5 +79,16 @@ export const Spacing = {
   six: 64,
 } as const;
 
-export const BottomTabInset = Platform.select({ ios: 50, android: 80 }) ?? 0;
+// Shared iOS-style layout constants so screens don't hand-roll one-off radii/heights.
+export const Radius = {
+  card: 14,
+  control: 12,
+} as const;
+
+export const ControlHeight = {
+  primaryButton: 52,
+  listRow: 54,
+} as const;
+
+export const BottomTabInset = Platform.select({ ios: 50, android: 80, web: 90 }) ?? 0;
 export const MaxContentWidth = 800;
