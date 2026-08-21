@@ -19,6 +19,21 @@ export interface OpenAiFoodScanProviderOptions {
   loadImage?: (photo: ScanPhoto) => Promise<string>;
 }
 
+export function imageMimeType(photo: ScanPhoto, blobType?: string): string {
+  if (blobType && ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(blobType)) return blobType;
+  const source = `${photo.fileName || ''} ${photo.uri}`.toLowerCase();
+  if (source.includes('.png')) return 'image/png';
+  if (source.includes('.gif')) return 'image/gif';
+  if (source.includes('.webp')) return 'image/webp';
+  return 'image/jpeg';
+}
+
+function normalizeImageDataUrl(dataUrl: string, photo: ScanPhoto, blobType?: string): string {
+  const separator = dataUrl.indexOf(',');
+  if (!dataUrl.startsWith('data:') || separator < 0) return dataUrl;
+  return `data:${imageMimeType(photo, blobType)}${dataUrl.slice(separator)}`;
+}
+
 async function encodeBrowserImage(blob: Blob, photoId: string): Promise<string> {
   if (typeof document === 'undefined' || typeof URL === 'undefined' || typeof Image === 'undefined') {
     throw new Error(`Unable to encode image ${photoId}.`);
@@ -69,7 +84,7 @@ export async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
     for (let offset = 0; offset < bytes.length; offset += chunkSize) {
       binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
     }
-    return `data:${blob.type || 'application/octet-stream'};base64,${btoa(binary)}`;
+    return `data:${imageMimeType(photo, blob.type)};base64,${btoa(binary)}`;
   }
 
   console.log('[food-scan] image encoding started with FileReader', { photoId: photo.id });
@@ -89,7 +104,7 @@ export async function loadImageAsDataUrl(photo: ScanPhoto): Promise<string> {
         return;
       }
       settled = true;
-      resolve(reader.result);
+      resolve(normalizeImageDataUrl(reader.result, photo, blob.type));
     };
     reader.onerror = () => {
       console.error('[food-scan] FileReader error', { photoId: photo.id });

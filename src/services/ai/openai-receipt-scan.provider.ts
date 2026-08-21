@@ -3,8 +3,8 @@ import { ReceiptPhoto, ReceiptScanResult } from '@/types/receipt-scan';
 import { AiProvider } from './ai-capability';
 import { GatewayAiProvider } from './gateway-ai.provider';
 import { loadImageAsDataUrl } from './openai-food-scan.provider';
-import { parseReceiptScanAiOutput, toReceiptScanResult } from './receipt-scan.schemas';
 import { ReceiptScanProvider } from './receipt-scan.provider';
+import { parseReceiptScanAiOutput, toReceiptScanResult } from './receipt-scan.schemas';
 
 export interface OpenAiReceiptScanProviderOptions { aiProvider?: AiProvider; loadImage?: (photo: ReceiptPhoto) => Promise<string>; }
 
