@@ -27,25 +27,34 @@ export class MealPlanningService {
 
   async generatePlan(preferences: MealPlanningPreferences): Promise<MealPlan> {
     const validatedPreferences = mealPlanningPreferencesSchema.parse(preferences);
+    const mealTypes = validatedPreferences.mealTypes?.length ? validatedPreferences.mealTypes : [validatedPreferences.mealType];
     const referenceDate = new Date();
     const inventory = await inventoryService.getItems();
     const snapshot = buildInventorySnapshot(inventory, referenceDate);
-    const candidates = await this.getCandidatesFromSnapshot(snapshot, validatedPreferences);
-    const selected = selectMealCandidates(candidates, snapshot, validatedPreferences);
-    const meals = selected.map((evaluation, dayIndex) => this.toMeal(dayIndex, validatedPreferences, evaluation));
+    const meals: MealPlanMeal[] = [];
+    for (const mealType of mealTypes) {
+      const mealPreferences = { ...validatedPreferences, mealType };
+      const candidates = await this.getCandidatesFromSnapshot(snapshot, mealPreferences);
+      const selected = selectMealCandidates(candidates, snapshot, mealPreferences);
+      meals.push(...selected.map((evaluation, dayIndex) => this.toMeal(dayIndex, mealPreferences, evaluation)));
+    }
     const now = getCurrentISOString();
     const startDate = new Date(now);
-    const days: MealPlanDay[] = meals.map((meal) => {
+    const days: MealPlanDay[] = Array.from({ length: validatedPreferences.days }, (_, dayIndex) => {
       const date = new Date(startDate);
-      date.setUTCDate(startDate.getUTCDate() + meal.dayIndex);
-      return { date: date.toISOString(), meals: [meal] };
+      date.setUTCDate(startDate.getUTCDate() + dayIndex);
+      return { date: date.toISOString(), meals: meals.filter((meal) => meal.dayIndex === dayIndex) };
     });
     const endDate = days[days.length - 1]?.date || now;
     return {
       id: generateUUID(),
-      title: selected.length === validatedPreferences.days
-        ? `${validatedPreferences.days}-day ${validatedPreferences.mealType} plan`
-        : `${selected.length} of ${validatedPreferences.days}-day ${validatedPreferences.mealType} plan`,
+      title: mealTypes.length === 1
+        ? meals.length === validatedPreferences.days
+          ? `${validatedPreferences.days}-day ${validatedPreferences.mealType} plan`
+          : `${meals.length} of ${validatedPreferences.days}-day ${validatedPreferences.mealType} plan`
+        : meals.length === validatedPreferences.days * mealTypes.length
+          ? `${validatedPreferences.days}-day meal plan`
+          : `${meals.length} of ${validatedPreferences.days * mealTypes.length}-meal plan`,
       version: 1,
       startDate: days[0]?.date || now,
       endDate,
@@ -144,6 +153,12 @@ export class MealPlanningService {
         mealType: preferences.mealType,
         useSoonInventoryItemIds: snapshot.filter((item) => item.useSoon).map((item) => item.inventoryItemId),
       },
+      prompt: [
+        preferences.includeIngredients?.length ? `Include: ${preferences.includeIngredients.join(', ')}` : '',
+        preferences.excludeIngredients?.length ? `Exclude: ${preferences.excludeIngredients.join(', ')}` : '',
+        preferences.fixedExclusions?.length ? `Fixed exclusions (allergies/dislikes): ${preferences.fixedExclusions.join(', ')}` : '',
+        preferences.includeSavedRecipes ? 'Prefer saved household recipes where suitable.' : '',
+      ].filter(Boolean).join(' '),
     });
 
     return candidates

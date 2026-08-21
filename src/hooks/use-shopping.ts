@@ -25,14 +25,14 @@ export function useShopping() {
     try {
       setLoading(true);
       setError(null);
-      const generated = await shoppingService.generateListForPlanId(planId);
+      const generated = await shoppingService.generateListForPlanId(planId, list?.mealPlanId === planId ? list : null);
       setList(generated);
     } catch (generationError) {
       setError(generationError instanceof Error ? generationError.message : 'Unable to generate shopping list');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [list]);
 
   const openList = useCallback(async (id: string) => {
     try {
@@ -67,8 +67,8 @@ export function useShopping() {
     setList((current) => current ? shoppingService.updateItemStatus(current, itemId, status) : current);
   }, []);
 
-  const addManualItem = useCallback((name: string, quantity: number | null, unit: InventoryUnit | null) => {
-    setList((current) => current && name.trim() ? shoppingService.addManualItem(current, name, quantity, unit) : current);
+  const addManualItem = useCallback((name: string, quantity: number | null, unit: InventoryUnit | null, priority: 'required' | 'recommended' = 'required') => {
+    setList((current) => current && name.trim() ? shoppingService.addManualItem(current, name, quantity, unit, priority) : current);
   }, []);
 
   const compareItemPrice = useCallback(async (itemId: string, observedPrice: number, referencePrice: number) => {

@@ -94,19 +94,23 @@ This is the concise historical record of functionality that exists and has been 
 
 ## V0.8 — AI Integration & Real-World MVP
 
-**Status:** Phases A–D implemented in code; TestFlight and real-device acceptance outstanding.
+**Status:** Phases A–E implemented/achieved for the initial TestFlight milestone; real-world validation outstanding.
 
 ### Phase A — Production AI Foundation
 **Delivered**
 - provider-neutral AI capability boundary exists
 - app uses an AI gateway/client rather than coupling domain logic directly to OpenAI
 - server-side AI gateway exists
+- gateway supports managed-host `PORT` configuration and local `.env` startup
+- `/v1/ai` is protected by a server-side bearer token while `/health` remains public
+- browser CORS is restricted to configured origins with preflight handling
 - OpenAI credentials are kept server-side
 - model/provider configuration is environment-driven
 - structured AI responses are validated before returning to the application
 - deterministic/mock providers remain available for tests and failure-mode validation
 - gateway/provider tests exist and pass
 - local gateway health check and sample AI request have been exercised successfully
+- web and TestFlight clients use the deployed HTTPS gateway URL through public client configuration
 
 ### Phase B — Real Food Scan
 **Delivered**
@@ -117,6 +121,13 @@ This is the concise historical record of functionality that exists and has been 
 - inventory mutation still happens only after explicit confirmation
 - AI provider tests and gateway tests pass
 
+### Receipt Scan — OpenAI-backed intake
+**Delivered**
+- receipt scanning uses `OpenAiReceiptScanProvider` instead of the historical mock provider
+- receipt images flow through the authenticated gateway using `receipt_scan`
+- receipt metadata and line candidates are schema-validated before review
+- receipt lines retain the existing edit/skip/confirm workflow
+
 ### Phase C — Real Recipe Suggestions
 **Delivered**
 - `OpenAiRecipeProvider` is used in the app hook
@@ -125,9 +136,10 @@ This is the concise historical record of functionality that exists and has been 
 - existing application/domain validation remains in control of the result
 - deterministic/mock recipe providers remain available
 - OpenAI recipe provider tests pass
+- generated recipe titles can be opened to review the full method and ingredient availability
 
 ### Phase D — AI-Assisted Meal Planning
-**Status:** Complete in code; real-device acceptance outstanding
+**Status:** Complete in code; exercised in the initial TestFlight milestone
 
 **Delivered**
 - planner hook uses the gateway's dedicated `meal_planning` capability
@@ -136,11 +148,26 @@ This is the concise historical record of functionality that exists and has been 
 - deterministic ranking, duplicate exclusion, replacement, review, persistence, versioning, and stale-plan safeguards remain active
 - malformed AI output and provider failures cannot create or mutate an invalid plan
 - focused Phase D tests pass, including provider capability selection and planning-context propagation
+- planner preferences support multiple meal types, include/exclude ingredients, fixed exclusions/allergies, and saved-recipe preference
+
+### Inventory and Navigation Refinement
+**Delivered**
+- dashboard no longer contains inventory-specific Use soon or storage-area sections
+- Inventory provides dedicated Fridge, Freezer, Store cupboard, Other, and derived Use soon routes
+- storage-area pages provide local name search, close-to-expiry filtering, item review, and deletion
+- web navigation uses client-side Expo Router transitions rather than full-page reloads
+
+### V0.9 — Shopping Foundations
+**Delivered**
+- explicit deterministic `MealRequirement` model and derivation module
+- equivalent ingredients aggregate across meals before Inventory matching
+- Shopping generation consumes the Meal Requirements boundary rather than duplicating aggregation logic
+- same-plan Shopping regeneration preserves manual items
+- matching meal-derived Shopping items preserve IDs, purchased/skipped state, and price observations during regeneration
 
 ### Outstanding V0.8 work
-- real iPhone/TestFlight validation
-- real-device camera/photo-library acceptance
-- full end-to-end household validation of food scan, recipe suggestions and meal planning
+- broader real-device camera/photo-library and receipt acceptance
+- full end-to-end household validation of food scan, receipt scan, recipes, meal planning and shopping
 - quality, latency and cost measurement under realistic conditions
 
 ## Current Overall Status
@@ -152,5 +179,6 @@ This is the concise historical record of functionality that exists and has been 
 - V0.5: implemented and web-accepted
 - V0.6: implemented MVP
 - V0.7: implemented MVP
-- V0.8: Phases A–D implemented in code; Phases E–F outstanding
-- V0.9: not started
+- V0.8: Phases A–E implemented/achieved for the initial TestFlight milestone; Phase F outstanding
+- Next product milestone: Household Food Workflow / Product UX is planned but not started
+- Nutrition / Deeper Intelligence: deferred until the household workflow is validated

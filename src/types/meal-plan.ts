@@ -6,7 +6,12 @@ export interface MealPlanningPreferences {
   people: number;
   days: number;
   mealType: MealType;
+  mealTypes?: MealType[];
   prioritizeExpiring: boolean;
+  includeSavedRecipes?: boolean;
+  includeIngredients?: string[];
+  excludeIngredients?: string[];
+  fixedExclusions?: string[];
 }
 
 export interface MealPlanMeal {

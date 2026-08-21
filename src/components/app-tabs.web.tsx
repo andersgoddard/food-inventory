@@ -9,13 +9,10 @@ import {
 import { Pressable, StyleSheet, useColorScheme, View } from 'react-native';
 
 import { Colors, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useInventory } from '@/hooks/use-inventory';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 
 export default function AppTabs() {
-  const { items } = useInventory();
-
   return (
     <Tabs>
       <TabSlot style={{ height: '100%' }} />
@@ -26,14 +23,7 @@ export default function AppTabs() {
           </TabTrigger>
           <TabTrigger name="inventory" href="/inventory" asChild>
             <TabButton>
-              <ThemedView style={styles.inventoryTabLabel}>
-                <ThemedText type="small" themeColor="textSecondary">Inventory</ThemedText>
-                {items.length > 0 && (
-                  <ThemedView style={styles.badge}>
-                    <ThemedText type="small" style={styles.badgeText}>{items.length}</ThemedText>
-                  </ThemedView>
-                )}
-              </ThemedView>
+              <ThemedText type="small" themeColor="textSecondary">Inventory</ThemedText>
             </TabButton>
           </TabTrigger>
         </CustomTabList>

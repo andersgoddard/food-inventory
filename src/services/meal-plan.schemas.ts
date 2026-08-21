@@ -29,7 +29,12 @@ export const mealPlanningPreferencesSchema = z.object({
   people: z.number().int().min(1).max(12),
   days: z.union([z.literal(supportedMealPlanDays[0]), z.literal(supportedMealPlanDays[1]), z.literal(supportedMealPlanDays[2])]),
   mealType: mealTypeSchema,
+  mealTypes: z.array(mealTypeSchema).min(1).max(3).optional(),
   prioritizeExpiring: z.boolean(),
+  includeSavedRecipes: z.boolean().optional(),
+  includeIngredients: z.array(z.string().trim().min(1)).max(20).optional(),
+  excludeIngredients: z.array(z.string().trim().min(1)).max(20).optional(),
+  fixedExclusions: z.array(z.string().trim().min(1)).max(20).optional(),
 });
 
 export const defaultMealPlanningPreferences = {
@@ -43,21 +48,30 @@ export function parseMealPlanningPreferences(data: unknown) {
   return mealPlanningPreferencesSchema.parse(data);
 }
 
-export function createDinnerPlanningPreferences(people: string, days: number): MealPlanningPreferences {
+export function createDinnerPlanningPreferences(people: string, days: number, options: Partial<MealPlanningPreferences> = {}): MealPlanningPreferences {
   return parseMealPlanningPreferences({
     people: Number(people),
     days,
     mealType: 'dinner',
     prioritizeExpiring: true,
+    ...options,
   });
 }
 
 export function toMealPlanRouteParams(preferences: MealPlanningPreferences) {
-  return {
+  const params = {
     people: String(preferences.people),
     days: String(preferences.days),
     mealType: preferences.mealType,
     prioritizeExpiring: String(preferences.prioritizeExpiring),
+  };
+  return {
+    ...params,
+    ...(preferences.mealTypes?.length ? { mealTypes: preferences.mealTypes.join(',') } : {}),
+    ...(preferences.includeSavedRecipes !== undefined ? { includeSavedRecipes: String(preferences.includeSavedRecipes) } : {}),
+    ...(preferences.includeIngredients?.length ? { includeIngredients: preferences.includeIngredients.join(',') } : {}),
+    ...(preferences.excludeIngredients?.length ? { excludeIngredients: preferences.excludeIngredients.join(',') } : {}),
+    ...(preferences.fixedExclusions?.length ? { fixedExclusions: preferences.fixedExclusions.join(',') } : {}),
   };
 }
 

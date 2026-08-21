@@ -12,7 +12,7 @@ import { useTheme } from '@/hooks/use-theme';
 import { InventoryItem } from '@/types/inventory';
 import { daysUntilDate, formatDate, isDateExpiredOrToday } from '@/utils/date';
 import { useRouter } from 'expo-router';
-import { Platform, Pressable, StyleSheet, View, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, ViewStyle } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 export interface InventoryItemCardProps {
@@ -35,11 +35,6 @@ export function InventoryItemCard({
   const daysUntilExpiry = item.expiryDate ? daysUntilDate(item.expiryDate) : null;
 
   const handleEdit = () => {
-    if (Platform.OS === 'web') {
-      window.location.assign(`/inventory/${item.id}`);
-      return;
-    }
-
     router.push(`/inventory/${item.id}`);
   };
 

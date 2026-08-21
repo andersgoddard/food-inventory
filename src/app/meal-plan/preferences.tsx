@@ -20,11 +20,27 @@ export default function MealPlanPreferencesScreen() {
   const router = useRouter();
   const [people, setPeople] = useState(String(defaultMealPlanningPreferences.people));
   const [days, setDays] = useState(defaultMealPlanningPreferences.days);
+  const [mealTypes, setMealTypes] = useState<Array<'breakfast' | 'lunch' | 'dinner'>>(['dinner']);
+  const [includeSavedRecipes, setIncludeSavedRecipes] = useState(false);
+  const [includeIngredients, setIncludeIngredients] = useState('');
+  const [excludeIngredients, setExcludeIngredients] = useState('');
+  const [fixedExclusions, setFixedExclusions] = useState('');
+  const [includeList, setIncludeList] = useState<string[]>([]);
+  const [excludeList, setExcludeList] = useState<string[]>([]);
+  const [includeDraft, setIncludeDraft] = useState('');
+  const [excludeDraft, setExcludeDraft] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleGenerate = () => {
     try {
-      const preferences = createDinnerPlanningPreferences(people, days);
+      const preferences = createDinnerPlanningPreferences(people, days, {
+        mealType: mealTypes[0],
+        mealTypes,
+        includeSavedRecipes,
+        includeIngredients: includeList,
+        excludeIngredients: excludeList,
+        fixedExclusions: fixedExclusions.split(',').map((item) => item.trim()).filter(Boolean),
+      });
       setError(null);
       router.replace({
         pathname: '/meal-plan',
@@ -39,9 +55,9 @@ export default function MealPlanPreferencesScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ThemedText type="title">Plan my week</ThemedText>
+          <ThemedText type="title">Weekly meal planner</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Set the basics for a simple dinner plan.
+            Choose the shape of your week and the ingredients you want to focus on.
           </ThemedText>
 
           <ThemedView style={styles.section}>
@@ -73,8 +89,32 @@ export default function MealPlanPreferencesScreen() {
 
             <ThemedView style={styles.field}>
               <ThemedText type="default" style={styles.label}>Meal</ThemedText>
-              <ThemedText type="default">Dinner</ThemedText>
+              <ThemedView style={styles.dayOptions}>
+                {(['breakfast', 'lunch', 'dinner'] as const).map((option) => (
+                  <Pressable key={option} onPress={() => setMealTypes((current) => current.includes(option) ? current.filter((item) => item !== option) : [...current, option])} style={[styles.dayOption, mealTypes.includes(option) && styles.dayOptionSelected]}>
+                    <ThemedText type="small" style={mealTypes.includes(option) && styles.selectedText}>{option[0].toUpperCase() + option.slice(1)}</ThemedText>
+                  </Pressable>
+                ))}
+              </ThemedView>
             </ThemedView>
+            <ThemedView style={styles.ingredientColumns}>
+              <ThemedView style={styles.ingredientColumn}>
+                <ThemedText type="default" style={styles.label}>Include</ThemedText>
+                <ThemedView style={styles.addRow}><Input label="" value={includeDraft} onChangeText={setIncludeDraft} placeholder="chicken" /><Button title="Add" size="small" onPress={() => { const value = includeDraft.trim(); if (value && !includeList.includes(value)) setIncludeList((items) => [...items, value]); setIncludeDraft(''); }} /></ThemedView>
+                <ThemedView style={styles.chips}>{includeList.map((item) => <Pressable key={item} onPress={() => setIncludeList((items) => items.filter((value) => value !== item))} style={styles.chip}><ThemedText type="small">{item} x</ThemedText></Pressable>)}</ThemedView>
+              </ThemedView>
+              <ThemedView style={styles.ingredientColumn}>
+                <ThemedText type="default" style={styles.label}>Exclude</ThemedText>
+                <ThemedView style={styles.addRow}><Input label="" value={excludeDraft} onChangeText={setExcludeDraft} placeholder="tofu" /><Button title="Add" size="small" onPress={() => { const value = excludeDraft.trim(); if (value && !excludeList.includes(value)) setExcludeList((items) => [...items, value]); setExcludeDraft(''); }} /></ThemedView>
+                <ThemedView style={styles.chips}>{excludeList.map((item) => <Pressable key={item} onPress={() => setExcludeList((items) => items.filter((value) => value !== item))} style={styles.chip}><ThemedText type="small">{item} x</ThemedText></Pressable>)}</ThemedView>
+                {!!fixedExclusions.trim() && <ThemedText type="small" themeColor="textSecondary">Fixed exclusions and allergies: {fixedExclusions}</ThemedText>}
+              </ThemedView>
+            </ThemedView>
+            <Input label="Allergies or fixed exclusions" value={fixedExclusions} onChangeText={setFixedExclusions} placeholder="e.g. peanuts, shellfish" />
+            <Pressable onPress={() => setIncludeSavedRecipes((value) => !value)} style={styles.preferenceRow}>
+              <ThemedText type="default">Include saved recipes and favourites</ThemedText>
+              <ThemedView style={[styles.toggle, includeSavedRecipes ? styles.toggleOn : styles.toggleOff]}><ThemedText type="small" style={styles.toggleText}>{includeSavedRecipes ? 'Yes' : 'No'}</ThemedText></ThemedView>
+            </Pressable>
           </ThemedView>
 
           {error && <FeedbackBanner message={error} tone="error" />}
@@ -110,5 +150,16 @@ const styles = StyleSheet.create({
   },
   dayOptionSelected: { backgroundColor: '#007AFF' },
   selectedText: { color: '#FFFFFF', fontWeight: '600' },
+  preferenceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: Spacing.two },
+  unselectedText: { color: '#8B949E', fontWeight: '600' },
+  ingredientColumns: { flexDirection: 'row', gap: Spacing.two },
+  ingredientColumn: { flex: 1, gap: Spacing.one },
+  addRow: { flexDirection: 'row', alignItems: 'flex-end', gap: Spacing.one },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.one },
+  chip: { paddingHorizontal: Spacing.two, paddingVertical: Spacing.one, borderRadius: Spacing.two, backgroundColor: '#E6F4FE' },
+  toggle: { minWidth: 48, paddingVertical: Spacing.one, paddingHorizontal: Spacing.two, borderRadius: Spacing.two, alignItems: 'center' },
+  toggleOn: { backgroundColor: '#34C759' },
+  toggleOff: { backgroundColor: '#8B949E' },
+  toggleText: { color: '#FFFFFF', fontWeight: '700' },
   backAction: { alignItems: 'center', paddingVertical: Spacing.two },
 });

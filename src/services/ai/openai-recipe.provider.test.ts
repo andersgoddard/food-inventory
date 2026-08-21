@@ -8,7 +8,7 @@ const request = {
     category: 'dairy' as const,
     quantity: 1,
     unit: 'l' as const,
-    expiryDate: '2026-08-20T00:00:00.000Z',
+    expiryDate: '2026-08-22T00:00:00.000Z',
   }],
   servings: 2,
   maxMinutes: 30,

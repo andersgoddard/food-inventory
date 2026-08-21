@@ -14,7 +14,7 @@ jest.mock('@/services', () => ({
         quantity: 1,
         unit: 'l',
         purchaseDate: '2026-08-18T00:00:00.000Z',
-        expiryDate: '2026-08-20T00:00:00.000Z',
+        expiryDate: '2026-08-22T00:00:00.000Z',
         purchasePrice: null,
         createdAt: '2026-08-18T00:00:00.000Z',
         updatedAt: '2026-08-18T00:00:00.000Z',

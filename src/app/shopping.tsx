@@ -18,6 +18,7 @@ export default function ShoppingScreen() {
   const { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, compareItemPrice } = useShopping();
   const [manualName, setManualName] = useState('');
   const [manualQuantity, setManualQuantity] = useState('');
+  const [manualPriority, setManualPriority] = useState<'required' | 'recommended'>('required');
   const [priceInputs, setPriceInputs] = useState<Record<string, { current: string; reference: string }>>({});
 
   useEffect(() => {
@@ -27,7 +28,7 @@ export default function ShoppingScreen() {
   }, [generateForPlan, loadLists, openList, params.mealPlanId, params.shoppingListId]);
 
   const addItem = () => {
-    addManualItem(manualName, manualQuantity ? Number(manualQuantity) : null, null);
+    addManualItem(manualName, manualQuantity ? Number(manualQuantity) : null, null, manualPriority);
     setManualName('');
     setManualQuantity('');
   };
@@ -49,7 +50,12 @@ export default function ShoppingScreen() {
               <ThemedText type="subtitle">{list.title}</ThemedText>
               {list.items.length === 0 ? (
                 <ThemedView style={styles.empty}><ThemedText type="subtitle">Nothing to buy</ThemedText><ThemedText type="small" themeColor="textSecondary">Your inventory covers this plan.</ThemedText></ThemedView>
-              ) : list.items.map((item) => (
+              ) : (['required', 'recommended', 'manual'] as const).map((group) => {
+                const groupItems = list.items.filter((item) => group === 'manual' ? item.source === 'manual' : item.source === 'meal_plan' && item.priority === group);
+                if (!groupItems.length) return null;
+                return <ThemedView key={group} style={styles.group}>
+                  <ThemedText type="subtitle">{group === 'required' ? 'Required' : group === 'recommended' ? 'Recommended' : 'Manual items'}</ThemedText>
+                  {groupItems.map((item) => (
                 <ThemedView key={item.id} style={styles.item}>
                   <ThemedText type="subtitle" style={styles.itemName}>{item.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
@@ -100,11 +106,16 @@ export default function ShoppingScreen() {
                     {statusButton(item.id, 'skipped', 'Skipped')}
                   </ThemedView>
                 </ThemedView>
-              ))}
+                  ))}
+                </ThemedView>;
+              })}
               <ThemedView style={styles.manualSection}>
                 <ThemedText type="subtitle">Add an item</ThemedText>
                 <Input label="Item name" value={manualName} onChangeText={setManualName} placeholder="e.g. Coffee" />
                 <Input label="Quantity (optional)" value={manualQuantity} onChangeText={setManualQuantity} keyboardType="decimal-pad" />
+                <Pressable onPress={() => setManualPriority((value) => value === 'required' ? 'recommended' : 'required')} style={styles.priorityToggle}>
+                  <ThemedText type="default">Priority</ThemedText><ThemedText type="small" themeColor="textSecondary">{manualPriority === 'required' ? 'Required' : 'Recommended'}</ThemedText>
+                </Pressable>
                 <Button title="Add manual item" onPress={addItem} disabled={!manualName.trim()} />
               </ThemedView>
               <Button title="Save shopping list" onPress={save} disabled={loading} />
@@ -136,12 +147,14 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, paddingHorizontal: Spacing.four, paddingTop: Platform.OS === 'web' ? 88 : Spacing.three },
   content: { gap: Spacing.three, paddingBottom: Spacing.six },
   item: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#F7F8FA' },
+  group: { gap: Spacing.two },
   itemName: { fontSize: 24, lineHeight: 30 },
   priceStatus: { color: '#9A6700', fontWeight: '600' },
   priceSection: { gap: Spacing.two, paddingTop: Spacing.two },
   assessment: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two, backgroundColor: '#E7F0FF' },
   actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.two },
   manualSection: { gap: Spacing.two, paddingTop: Spacing.two },
+  priorityToggle: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: Spacing.two },
   savedSection: { gap: Spacing.two },
   empty: { alignItems: 'center', gap: Spacing.two, paddingVertical: Spacing.five },
   back: { alignItems: 'center', paddingVertical: Spacing.two },

@@ -9,7 +9,7 @@ import { useCallback } from 'react';
 export default function AppTabs() {
   const scheme = useColorScheme();
   const colors = Colors[scheme === 'unspecified' ? 'light' : scheme];
-  const { items, refresh } = useInventory();
+  const { refresh } = useInventory();
 
   useFocusEffect(
     useCallback(() => {
@@ -37,7 +37,6 @@ export default function AppTabs() {
         name="inventory"
         options={{
           title: 'Inventory',
-          tabBarBadge: items.length > 0 ? String(items.length) : undefined,
           tabBarIcon: ({ color, size }) => <Image source={require('@/assets/images/tabIcons/explore.png')} style={{ width: size, height: size, tintColor: color }} />,
         }}
       />

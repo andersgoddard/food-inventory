@@ -81,6 +81,26 @@ describe('ShoppingService', () => {
     expect(list.items).not.toHaveLength(withManual.items.length);
   });
 
+  it('preserves manual items when regenerating a meal-plan list', async () => {
+    const service = new ShoppingService(new ShoppingRepository(new MemoryAdapter()), undefined, inventoryService as never);
+    const list = await service.generateList(testPlan);
+    const withManual = service.addManualItem(list, 'Coffee', null, null);
+    const regenerated = await service.generateList(testPlan, withManual);
+
+    expect(regenerated.items.filter((item) => item.source === 'manual')).toHaveLength(1);
+    expect(regenerated.items.find((item) => item.source === 'manual')).toMatchObject({ name: 'Coffee' });
+  });
+
+  it('preserves meal-item completion state when regenerating the same plan', async () => {
+    const service = new ShoppingService(new ShoppingRepository(new MemoryAdapter()), undefined, inventoryService as never);
+    const list = await service.generateList(testPlan);
+    const milk = list.items.find((item) => item.normalizedName === 'milk');
+    const purchased = service.updateItemStatus(list, milk?.id || '', 'purchased');
+    const regenerated = await service.generateList(testPlan, purchased);
+
+    expect(regenerated.items.find((item) => item.normalizedName === 'milk')?.status).toBe('purchased');
+  });
+
   it('classifies fixture prices deterministically', async () => {
     const service = new ShoppingService(new ShoppingRepository(new MemoryAdapter()), undefined, inventoryService as never);
     const list = await service.generateList(testPlan);

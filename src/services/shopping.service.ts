@@ -8,19 +8,8 @@ import { InventoryService } from './inventory/inventory.service';
 import { MealPlanRepository } from './meal-plan.repository';
 import { matchIngredient } from './meal-planning/ingredient-matcher';
 import { buildInventorySnapshot, normalizeIngredientName } from './meal-planning/inventory-snapshot';
+import { deriveMealRequirements } from './meal-requirements';
 import { ShoppingRepository } from './shopping.repository';
-
-interface Requirement {
-  name: string;
-  normalizedName: string;
-  quantity: number | null;
-  unit: InventoryUnit | null;
-  mealIds: string[];
-}
-
-function requirementKey(requirement: Requirement): string {
-  return `${requirement.normalizedName}:${requirement.unit || 'unknown'}`;
-}
 
 function classifyPrice(observed: number | null, reference: number | null): PriceStatus {
   if (observed === null || reference === null || reference === 0) return 'unknown';
@@ -31,6 +20,7 @@ function classifyPrice(observed: number | null, reference: number | null): Price
   return 'normal';
 }
 
+
 export class ShoppingService {
   constructor(
     private repository: ShoppingRepository,
@@ -38,48 +28,27 @@ export class ShoppingService {
     private inventoryService: InventoryService
   ) {}
 
-  async generateListForPlanId(planId: string): Promise<ShoppingList> {
+  async generateListForPlanId(planId: string, existingList: ShoppingList | null = null): Promise<ShoppingList> {
     if (!this.mealPlanRepository) throw new Error('Meal plan repository is not configured');
     const plan = await this.mealPlanRepository.getPlan(planId);
     if (!plan) throw new Error('Meal plan was not found');
-    return this.generateList(plan);
+    return this.generateList(plan, existingList);
   }
 
-  async generateList(plan: MealPlan): Promise<ShoppingList> {
+  async generateList(plan: MealPlan, existingList: ShoppingList | null = null): Promise<ShoppingList> {
     const inventory = await this.inventoryService.getItems();
     const snapshot = buildInventorySnapshot(inventory);
-    const requirements = new Map<string, Requirement>();
-
-    for (const day of plan.days) {
-      for (const meal of day.meals) {
-        for (const ingredient of meal.recipeSnapshot.ingredients) {
-          const requirement: Requirement = {
-            name: ingredient.name,
-            normalizedName: normalizeIngredientName(ingredient.name),
-            quantity: ingredient.quantity,
-            unit: ingredient.unit,
-            mealIds: [meal.id],
-          };
-          const key = requirementKey(requirement);
-          const existing = requirements.get(key);
-          if (!existing) {
-            requirements.set(key, requirement);
-          } else {
-            existing.mealIds = [...new Set([...existing.mealIds, meal.id])];
-            if (existing.quantity !== null && requirement.quantity !== null) {
-              existing.quantity += requirement.quantity;
-            } else {
-              existing.quantity = null;
-            }
-          }
-        }
-      }
-    }
+    const requirements = deriveMealRequirements(plan);
 
     const listId = generateUUID();
     const now = getCurrentISOString();
+    const previousMealItems = new Map(
+      (existingList?.mealPlanId === plan.id ? existingList.items : [])
+        .filter((item) => item.source === 'meal_plan')
+        .map((item) => [`${item.normalizedName}:${item.unit || 'unknown'}`, item])
+    );
     const items: ShoppingItem[] = [];
-    for (const requirement of requirements.values()) {
+    for (const requirement of requirements) {
       const match = matchIngredient({
         name: requirement.name,
         quantity: requirement.quantity,
@@ -90,8 +59,9 @@ export class ShoppingService {
       const fullyCovered = match.status === 'available';
       if (fullyCovered) continue;
       const quantityConfidence = requirement.quantity !== null && requirement.unit !== null ? 'exact' : 'unknown';
+      const previous = previousMealItems.get(`${requirement.normalizedName}:${requirement.unit || 'unknown'}`);
       items.push({
-        id: generateUUID(),
+        id: previous?.id || generateUUID(),
         shoppingListId: listId,
         product: {
           id: `product:${requirement.normalizedName}`,
@@ -109,21 +79,26 @@ export class ShoppingService {
         quantityConfidence,
         source: 'meal_plan',
         sourceMealPlanMealIds: requirement.mealIds,
-        priority: 'required',
-        status: 'needed',
-        parPrice: null,
-        currentPriceObservation: null,
-        priceStatus: 'unknown',
+        priority: requirement.priority,
+        status: previous?.status || 'needed',
+        parPrice: previous?.parPrice || null,
+        currentPriceObservation: previous?.currentPriceObservation || null,
+        priceStatus: previous?.priceStatus || 'unknown',
+        ...(previous?.priceAssessment ? { priceAssessment: previous.priceAssessment } : {}),
         createdAt: now,
         updatedAt: now,
       });
     }
 
+    const manualItems = existingList?.mealPlanId === plan.id
+      ? existingList.items.filter((item) => item.source === 'manual').map((item) => ({ ...item, shoppingListId: listId, updatedAt: now }))
+      : [];
+
     return {
       id: listId,
       title: `Shopping for ${plan.title}`,
       mealPlanId: plan.id,
-      items,
+      items: [...items, ...manualItems],
       createdAt: now,
       updatedAt: now,
       status: 'open',
@@ -143,7 +118,7 @@ export class ShoppingService {
     };
   }
 
-  addManualItem(list: ShoppingList, name: string, quantity: number | null, unit: InventoryUnit | null): ShoppingList {
+  addManualItem(list: ShoppingList, name: string, quantity: number | null, unit: InventoryUnit | null, priority: ShoppingItem['priority'] = 'required'): ShoppingList {
     const now = getCurrentISOString();
     const normalizedName = normalizeIngredientName(name);
     const item: ShoppingItem = {
@@ -159,7 +134,7 @@ export class ShoppingService {
       quantityConfidence: quantity !== null && unit !== null ? 'exact' : 'unknown',
       source: 'manual',
       sourceMealPlanMealIds: [],
-      priority: 'required',
+      priority,
       status: 'needed',
       parPrice: null,
       currentPriceObservation: null,

@@ -20,6 +20,7 @@ export default function RecipeIdeasScreen() {
   const [maxMinutes, setMaxMinutes] = useState('30');
   const [prioritizeExpiring, setPrioritizeExpiring] = useState(true);
   const [savedMessage, setSavedMessage] = useState<string | null>(null);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeSuggestion | null>(null);
 
   const handleGenerate = () => {
     generate({
@@ -40,10 +41,6 @@ export default function RecipeIdeasScreen() {
   };
 
   const handleReviewInventory = () => {
-    if (Platform.OS === 'web') {
-      window.location.assign('/inventory');
-      return;
-    }
     router.push('/inventory');
   };
 
@@ -51,7 +48,7 @@ export default function RecipeIdeasScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-          <ThemedText type="title">What can I make?</ThemedText>
+          <ThemedText type="title">Recipes</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
             Suggestions are based on your current inventory. Nothing is removed when you view or save a recipe.
           </ThemedText>
@@ -83,7 +80,22 @@ export default function RecipeIdeasScreen() {
           {error && <FeedbackBanner message={error} tone="error" />}
           {savedMessage && <FeedbackBanner message={savedMessage} onDismiss={() => setSavedMessage(null)} />}
 
-          {suggestions.length === 0 && !loading ? (
+          {selectedRecipe ? (
+            <ThemedView style={styles.results}>
+              <ThemedText type="title">{selectedRecipe.title}</ThemedText>
+              <ThemedText type="default">{selectedRecipe.summary}</ThemedText>
+              <ThemedText type="subtitle">Ingredients</ThemedText>
+              {selectedRecipe.ingredients.map((ingredient) => (
+                <ThemedView key={`${selectedRecipe.id}-${ingredient.name}`} style={styles.ingredientRow}>
+                  <ThemedText type="small">{ingredient.name}</ThemedText>
+                  <ThemedText type="small" style={ingredient.status === 'available' ? styles.available : styles.missing}>{ingredient.status}</ThemedText>
+                </ThemedView>
+              ))}
+              <ThemedText type="subtitle">Method</ThemedText>
+              {selectedRecipe.steps.map((step, index) => <ThemedText key={`${selectedRecipe.id}-detail-step-${index}`} type="small">{index + 1}. {step}</ThemedText>)}
+              <Button title="Back to recipes" variant="secondary" onPress={() => setSelectedRecipe(null)} />
+            </ThemedView>
+          ) : suggestions.length === 0 && !loading ? (
             <ThemedView style={styles.emptyState}>
               <ThemedText type="subtitle">No suggestions yet</ThemedText>
               <ThemedText type="small" themeColor="textSecondary" style={styles.centerText}>
@@ -95,7 +107,7 @@ export default function RecipeIdeasScreen() {
             <ThemedView style={styles.results}>
               <ThemedText type="subtitle">Suggestions</ThemedText>
               {suggestions.map((recipe) => (
-                <ThemedView key={recipe.id} style={styles.recipeCard}>
+                <Pressable key={recipe.id} onPress={() => setSelectedRecipe(recipe)} style={styles.recipeCard}>
                   <ThemedView style={styles.recipeHeader}>
                     <ThemedView style={styles.recipeTitle}>
                       <ThemedText type="subtitle">{recipe.title}</ThemedText>
@@ -107,27 +119,12 @@ export default function RecipeIdeasScreen() {
                       <ThemedText type="small" style={styles.saveAction}>{isSaved(recipe.id) ? 'Saved' : 'Save'}</ThemedText>
                     </Pressable>
                   </ThemedView>
-                  <ThemedText type="default">{recipe.summary}</ThemedText>
-                  {recipe.expiryPriority === 'high' && (
-                    <ThemedText type="small" style={styles.expiryText}>Uses food expiring soon</ThemedText>
-                  )}
-                  <ThemedText type="default" style={styles.subheading}>Ingredients</ThemedText>
-                  {recipe.ingredients.map((ingredient) => (
-                    <ThemedView key={`${recipe.id}-${ingredient.name}`} style={styles.ingredientRow}>
-                      <ThemedText type="small">{ingredient.name}</ThemedText>
-                      <ThemedText type="small" style={ingredient.status === 'available' ? styles.available : styles.missing}>
-                        {ingredient.status}
-                      </ThemedText>
-                    </ThemedView>
-                  ))}
-                  <ThemedText type="default" style={styles.subheading}>Method</ThemedText>
-                  {recipe.steps.map((step, index) => (
-                    <ThemedText key={`${recipe.id}-step-${index}`} type="small">{index + 1}. {step}</ThemedText>
-                  ))}
-                </ThemedView>
+                  <ThemedText type="default">Tap to view ingredients and method.</ThemedText>
+                </Pressable>
               ))}
             </ThemedView>
           )}
+          <Button title="Back to Dashboard" variant="secondary" onPress={() => router.replace('/')} />
         </ScrollView>
       </SafeAreaView>
     </ThemedView>

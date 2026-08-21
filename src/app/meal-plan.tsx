@@ -23,7 +23,12 @@ export default function MealPlanScreen() {
     people?: string;
     days?: string;
     mealType?: string;
+    mealTypes?: string;
     prioritizeExpiring?: string;
+    includeSavedRecipes?: string;
+    includeIngredients?: string;
+    excludeIngredients?: string;
+    fixedExclusions?: string;
     savedPlanId?: string;
   }>();
   const {
@@ -63,7 +68,12 @@ export default function MealPlanScreen() {
         people: Number(params.people),
         days: Number(params.days),
         mealType: params.mealType,
+        mealTypes: params.mealTypes ? params.mealTypes.split(',').filter(Boolean) : undefined,
         prioritizeExpiring: params.prioritizeExpiring !== 'false',
+        includeSavedRecipes: params.includeSavedRecipes === 'true',
+        includeIngredients: params.includeIngredients ? params.includeIngredients.split(',').filter(Boolean) : [],
+        excludeIngredients: params.excludeIngredients ? params.excludeIngredients.split(',').filter(Boolean) : [],
+        fixedExclusions: params.fixedExclusions ? params.fixedExclusions.split(',').filter(Boolean) : [],
       });
       setRouteError(null);
       setPreferences(validated);
