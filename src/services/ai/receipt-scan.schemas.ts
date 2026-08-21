@@ -1,10 +1,45 @@
 import { ReceiptScanResult } from '@/types/receipt-scan';
 import { generateUUID } from '@/utils/id';
 import { z } from 'zod';
+import { parseLenientArray } from './lenient-array.schema';
 
 const unitSchema = z.enum(['g', 'kg', 'ml', 'l', 'unit', 'package']);
 const categorySchema = z.enum(['dairy', 'meat', 'fish', 'fruit', 'vegetables', 'grains', 'canned', 'frozen', 'snacks', 'beverages', 'condiments', 'other']);
-const flexibleUnitSchema = z.preprocess((value) => typeof value === 'string' && unitSchema.safeParse(value).success ? value : null, unitSchema.nullable());
+
+// The model sometimes returns a container/serving noun instead of a measurement unit; map those to the accepted enum.
+const UNIT_ALIASES: Record<string, z.infer<typeof unitSchema>> = {
+  tub: 'package',
+  jar: 'package',
+  bag: 'package',
+  box: 'package',
+  carton: 'package',
+  bottle: 'package',
+  can: 'package',
+  tin: 'package',
+  pack: 'package',
+  packet: 'package',
+  container: 'package',
+  piece: 'unit',
+  pieces: 'unit',
+  item: 'unit',
+  items: 'unit',
+  each: 'unit',
+  bunch: 'unit',
+  slice: 'unit',
+  slices: 'unit',
+  head: 'unit',
+  clove: 'unit',
+  cloves: 'unit',
+};
+
+const flexibleUnitSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return null;
+  const key = value.trim().toLowerCase();
+  const aliased = UNIT_ALIASES[key] ?? value;
+  if (unitSchema.safeParse(aliased).success) return aliased;
+  console.warn('[receipt-scan] unrecognized unit from AI output, falling back to null', { received: value });
+  return null;
+}, unitSchema.nullable());
 
 // The model sometimes returns singular or synonym category names; map those to the accepted enum.
 const CATEGORY_ALIASES: Record<string, z.infer<typeof categorySchema>> = {
@@ -41,30 +76,40 @@ const flexibleCategorySchema = z.preprocess((value) => {
   return null;
 }, categorySchema.nullable());
 
+const receiptMetadataSchema = z.object({
+  merchantName: z.string().nullable(),
+  purchaseDate: z.string().nullable(),
+  currency: z.string().nullable(),
+  subtotal: z.number().nullable(),
+  tax: z.number().nullable(),
+  total: z.number().nullable(),
+  confidence: z.number().min(0).max(1),
+});
+
+const receiptLineSchema = z.object({
+  rawDescription: z.string().min(1),
+  normalizedName: z.string().min(1),
+  category: flexibleCategorySchema,
+  quantity: z.number().positive().nullable(),
+  unit: flexibleUnitSchema,
+  unitPrice: z.number().nullable(),
+  lineTotal: z.number().nullable(),
+  confidence: z.number().min(0).max(1),
+});
+
 const receiptOutputSchema = z.object({
-  receipt: z.object({
-    merchantName: z.string().nullable(),
-    purchaseDate: z.string().nullable(),
-    currency: z.string().nullable(),
-    subtotal: z.number().nullable(),
-    tax: z.number().nullable(),
-    total: z.number().nullable(),
-    confidence: z.number().min(0).max(1),
-  }),
-  lines: z.array(z.object({
-    rawDescription: z.string().min(1),
-    normalizedName: z.string().min(1),
-    category: flexibleCategorySchema,
-    quantity: z.number().positive().nullable(),
-    unit: flexibleUnitSchema,
-    unitPrice: z.number().nullable(),
-    lineTotal: z.number().nullable(),
-    confidence: z.number().min(0).max(1),
-  })),
+  receipt: receiptMetadataSchema,
+  lines: z.array(receiptLineSchema),
 });
 
 export function parseReceiptScanAiOutput(value: unknown): z.infer<typeof receiptOutputSchema> {
-  return receiptOutputSchema.parse(value);
+  const container = value && typeof value === 'object' ? (value as { receipt?: unknown; lines?: unknown }) : {};
+  const receipt = receiptMetadataSchema.parse(container.receipt);
+  const lines = parseLenientArray(receiptLineSchema, container.lines, 'receipt-scan');
+  if (Array.isArray(container.lines) && container.lines.length > 0 && lines.length === 0) {
+    throw new Error('Receipt scan AI output failed validation.');
+  }
+  return { receipt, lines };
 }
 
 export function toReceiptScanResult(value: z.infer<typeof receiptOutputSchema>): ReceiptScanResult {

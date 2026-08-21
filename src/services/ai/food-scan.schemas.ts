@@ -1,6 +1,7 @@
 import { FoodScanCandidate } from '@/types/food-scan';
 import { InventoryCategory, InventoryLocation, InventoryUnit } from '@/types/inventory';
 import { z } from 'zod';
+import { parseLenientArray } from './lenient-array.schema';
 
 const categorySchema = z.enum([
   'dairy',
@@ -19,6 +20,45 @@ const categorySchema = z.enum([
 
 const locationSchema = z.enum(['fridge', 'freezer', 'cupboard', 'other']);
 const unitSchema = z.enum(['g', 'kg', 'ml', 'l', 'unit', 'package']);
+
+// The model sometimes returns a container/serving noun instead of a measurement unit; map those to the accepted enum.
+const UNIT_ALIASES: Record<string, z.infer<typeof unitSchema>> = {
+  tub: 'package',
+  jar: 'package',
+  bag: 'package',
+  box: 'package',
+  carton: 'package',
+  bottle: 'package',
+  can: 'package',
+  tin: 'package',
+  pack: 'package',
+  packet: 'package',
+  container: 'package',
+  piece: 'unit',
+  pieces: 'unit',
+  item: 'unit',
+  items: 'unit',
+  each: 'unit',
+  bunch: 'unit',
+  slice: 'unit',
+  slices: 'unit',
+  head: 'unit',
+  clove: 'unit',
+  cloves: 'unit',
+};
+
+function normalizeUnit(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const key = value.trim().toLowerCase();
+  const aliased = UNIT_ALIASES[key] ?? value;
+  if (unitSchema.safeParse(aliased).success) return aliased;
+  // Unrecognized unit: record the raw value so we can decide whether it needs an
+  // alias later, then fall back to null rather than failing the candidate.
+  console.warn('[food-scan] unrecognized unit from AI output, falling back to null', { received: value });
+  return null;
+}
+
+const normalizedUnitSchema = z.preprocess(normalizeUnit, unitSchema.nullable());
 
 // The model sometimes returns singular or synonym category names; map those to the accepted enum.
 const CATEGORY_ALIASES: Record<string, z.infer<typeof categorySchema>> = {
@@ -62,7 +102,7 @@ export const foodScanAiCandidateSchema = z.object({
   name: z.string().trim().min(1).max(120),
   category: normalizedCategorySchema,
   quantity: z.number().positive().max(1000).nullable(),
-  unit: unitSchema.nullable(),
+  unit: normalizedUnitSchema,
   confidence: z.number().min(0).max(1),
 });
 
@@ -71,7 +111,12 @@ export const foodScanAiOutputSchema = z.object({
 });
 
 export function parseFoodScanAiOutput(value: unknown): z.infer<typeof foodScanAiOutputSchema> {
-  return foodScanAiOutputSchema.parse(value);
+  const raw = value && typeof value === 'object' ? (value as { candidates?: unknown }).candidates : undefined;
+  const candidates = parseLenientArray(foodScanAiCandidateSchema, raw, 'food-scan').slice(0, 30);
+  if (Array.isArray(raw) && raw.length > 0 && candidates.length === 0) {
+    throw new Error('Food scan AI output failed validation.');
+  }
+  return { candidates };
 }
 
 export function toFoodScanCandidate(
