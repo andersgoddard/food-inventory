@@ -28,10 +28,21 @@ export function imageMimeType(photo: ScanPhoto, blobType?: string): string {
   return 'image/jpeg';
 }
 
-function normalizeImageDataUrl(dataUrl: string, photo: ScanPhoto, blobType?: string): string {
+export function normalizeImageDataUrl(dataUrl: string, photo: ScanPhoto, blobType?: string): string {
   const separator = dataUrl.indexOf(',');
-  if (!dataUrl.startsWith('data:') || separator < 0) return dataUrl;
-  return `data:${imageMimeType(photo, blobType)}${dataUrl.slice(separator)}`;
+  if (!dataUrl.startsWith('data:') || separator < 0) {
+    throw new Error(`Unable to encode image ${photo.id} as a data URL.`);
+  }
+
+  const payload = dataUrl.slice(separator + 1);
+  if (!payload) throw new Error(`Unable to encode image ${photo.id}.`);
+
+  const isBase64 = dataUrl.slice(5, separator).toLowerCase().includes(';base64');
+  if (!isBase64 && !/^[A-Za-z0-9+/]*={0,2}$/.test(payload)) {
+    throw new Error(`Unable to encode image ${photo.id} as base64.`);
+  }
+
+  return `data:${imageMimeType(photo, blobType)};base64,${payload}`;
 }
 
 async function encodeBrowserImage(blob: Blob, photoId: string): Promise<string> {
@@ -142,7 +153,7 @@ export class OpenAiFoodScanProvider implements FoodScanProvider {
     const encodedPhotos: EncodedPhoto[] = await Promise.all(
       photos.map(async (photo) => {
         console.log('[food-scan] encoding photo started', { photoId: photo.id });
-        const dataUrl = await this.loadImage(photo);
+        const dataUrl = normalizeImageDataUrl(await this.loadImage(photo), photo);
         console.log('[food-scan] encoding photo resolved', { photoId: photo.id, dataUrlLength: dataUrl.length });
         return { photoId: photo.id, dataUrl, width: photo.width, height: photo.height };
       })
