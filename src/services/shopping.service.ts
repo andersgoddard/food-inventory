@@ -32,11 +32,40 @@ export class ShoppingService {
     if (!this.mealPlanRepository) throw new Error('Meal plan repository is not configured');
     const plan = await this.mealPlanRepository.getPlan(planId);
     if (!plan) throw new Error('Meal plan was not found');
-    return this.generateList(plan, existingList);
+    return this.generateList(plan, await this.resolveExistingList(plan.id, existingList));
   }
 
   async generateListForPlan(plan: MealPlan, existingList: ShoppingList | null = null): Promise<ShoppingList> {
-    return this.generateList(plan, existingList);
+    return this.generateList(plan, await this.resolveExistingList(plan.id, existingList));
+  }
+
+  // Falls back to any previously saved list for this plan so manual items and purchase/skip
+  // state survive across sessions, not just while the list is still held in memory.
+  private async resolveExistingList(planId: string, existingList: ShoppingList | null): Promise<ShoppingList | null> {
+    if (existingList) return existingList;
+    return this.repository.getListForMealPlan(planId);
+  }
+
+  // Called when the originating meal plan is deleted. Rather than leaving a dangling
+  // mealPlanId (a confusing broken reference) or deleting the list (losing manual items and
+  // purchase/skip state), the list is detached into a standalone list - `mealPlanId` becomes
+  // null, which is already a supported state (manually-created lists use it), so it keeps
+  // showing up under "Saved shopping lists" with everything exactly as it was left.
+  async detachFromMealPlan(mealPlanId: string): Promise<ShoppingList | null> {
+    const list = await this.repository.getListForMealPlan(mealPlanId);
+    if (!list) return null;
+    return this.repository.saveList({ ...list, mealPlanId: null, updatedAt: getCurrentISOString() });
+  }
+
+  // Shared by every intake path (manual add, receipt scan, food scan): once Inventory intake
+  // has actually been confirmed, mark the originating Shopping item purchased as a separate,
+  // explicit follow-up save. This never runs before intake succeeds, so Shopping status can
+  // never create Inventory state on its own.
+  async confirmItemPurchased(shoppingListId: string, itemId: string): Promise<ShoppingList | null> {
+    const list = await this.repository.getList(shoppingListId);
+    if (!list) return null;
+    const updated = this.updateItemStatus(list, itemId, 'purchased');
+    return this.repository.saveList(updated);
   }
 
   async generateList(plan: MealPlan, existingList: ShoppingList | null = null): Promise<ShoppingList> {
@@ -49,7 +78,7 @@ export class ShoppingService {
     const previousMealItems = new Map(
       (existingList?.mealPlanId === plan.id ? existingList.items : [])
         .filter((item) => item.source === 'meal_plan')
-        .map((item) => [`${item.normalizedName}:${item.unit || 'unknown'}`, item])
+        .map((item) => [item.normalizedName, item])
     );
     const items: ShoppingItem[] = [];
     for (const requirement of requirements) {
@@ -60,10 +89,12 @@ export class ShoppingService {
         status: 'missing',
         matchedInventoryItemIds: [],
       }, snapshot);
-      const fullyCovered = match.status === 'available';
+      // Only omit a requirement when we're confident it's covered. When the required quantity
+      // is approximate or unknown, matchIngredient's "available" status just means some
+      // inventory of that name exists, not that it's actually enough - so keep it on the list.
+      const fullyCovered = requirement.quantityConfidence === 'exact' && match.status === 'available';
       if (fullyCovered) continue;
-      const quantityConfidence = requirement.quantity !== null && requirement.unit !== null ? 'exact' : 'unknown';
-      const previous = previousMealItems.get(`${requirement.normalizedName}:${requirement.unit || 'unknown'}`);
+      const previous = previousMealItems.get(requirement.normalizedName);
       items.push({
         id: previous?.id || generateUUID(),
         shoppingListId: listId,
@@ -80,9 +111,12 @@ export class ShoppingService {
         availableQuantity: match.availableQuantity,
         missingQuantity: requirement.quantity === null ? null : Math.max(requirement.quantity - match.availableQuantity, 0),
         unit: requirement.unit,
-        quantityConfidence,
+        quantityConfidence: requirement.quantityConfidence,
         source: 'meal_plan',
         sourceMealPlanMealIds: requirement.mealIds,
+        sourceMealTitles: requirement.mealTitles,
+        hasIncompatibleUnitInventory: match.incompatibleUnitInventoryItemIds.length > 0,
+        hasUseSoonInventory: match.useSoonInventoryItemIds.length > 0,
         priority: requirement.priority,
         status: previous?.status || 'needed',
         parPrice: previous?.parPrice || null,
@@ -122,6 +156,14 @@ export class ShoppingService {
     };
   }
 
+  removeItem(list: ShoppingList, itemId: string): ShoppingList {
+    return {
+      ...list,
+      items: list.items.filter((item) => item.id !== itemId),
+      updatedAt: getCurrentISOString(),
+    };
+  }
+
   addManualItem(list: ShoppingList, name: string, quantity: number | null, unit: InventoryUnit | null, priority: ShoppingItem['priority'] = 'required'): ShoppingList {
     const now = getCurrentISOString();
     const normalizedName = normalizeIngredientName(name);
@@ -138,6 +180,9 @@ export class ShoppingService {
       quantityConfidence: quantity !== null && unit !== null ? 'exact' : 'unknown',
       source: 'manual',
       sourceMealPlanMealIds: [],
+      sourceMealTitles: [],
+      hasIncompatibleUnitInventory: false,
+      hasUseSoonInventory: false,
       priority,
       status: 'needed',
       parPrice: null,

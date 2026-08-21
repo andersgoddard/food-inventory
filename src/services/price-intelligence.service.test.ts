@@ -17,7 +17,8 @@ function item(): ShoppingItem {
     id: '11111111-1111-4111-8111-111111111111', shoppingListId: '22222222-2222-4222-8222-222222222222',
     product: { id: 'product:olive-oil', normalizedName: 'olive oil', displayName: 'Olive oil', category: null, comparableProductGroupId: 'oil' },
     name: 'Olive oil', normalizedName: 'olive oil', requiredQuantity: 1, availableQuantity: 0, missingQuantity: 1,
-    unit: 'l', quantityConfidence: 'exact', source: 'meal_plan', sourceMealPlanMealIds: ['meal-1'], priority: 'required', status: 'needed',
+    unit: 'l', quantityConfidence: 'exact', source: 'meal_plan', sourceMealPlanMealIds: ['meal-1'], sourceMealTitles: ['Pasta night'],
+    hasIncompatibleUnitInventory: false, hasUseSoonInventory: false, priority: 'required', status: 'needed',
     parPrice: null, currentPriceObservation: null, priceStatus: 'unknown', createdAt: '2026-08-19T00:00:00.000Z', updatedAt: '2026-08-19T00:00:00.000Z',
   };
 }

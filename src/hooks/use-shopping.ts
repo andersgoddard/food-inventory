@@ -89,6 +89,14 @@ export function useShopping() {
     });
   }, []);
 
+  const removeItem = useCallback((itemId: string) => {
+    setList((current) => {
+      const next = current ? shoppingService.removeItem(current, itemId) : current;
+      listRef.current = next;
+      return next;
+    });
+  }, []);
+
   const compareItemPrice = useCallback(async (itemId: string, observedPrice: number, referencePrice: number) => {
     const current = list;
     if (!current) return;
@@ -109,5 +117,5 @@ export function useShopping() {
     }
   }, [list]);
 
-  return { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, compareItemPrice };
+  return { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, removeItem, compareItemPrice };
 }

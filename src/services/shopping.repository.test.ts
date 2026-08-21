@@ -31,4 +31,20 @@ describe('ShoppingRepository', () => {
     await adapter.set('shopping_lists', [{ bad: true }]);
     expect(await new ShoppingRepository(adapter).getLists()).toEqual([]);
   });
+
+  it('finds the most recently updated list for a meal plan', async () => {
+    const adapter = new MemoryAdapter();
+    const repository = new ShoppingRepository(adapter);
+    const planId = '55555555-5555-4555-8555-555555555555';
+    const otherPlanId = '66666666-6666-4666-8666-666666666666';
+    const older: ShoppingList = { ...list, id: '22222222-2222-4222-8222-222222222222', mealPlanId: planId, updatedAt: '2026-08-19T00:00:00.000Z' };
+    const newer: ShoppingList = { ...list, id: '33333333-3333-4333-8333-333333333333', mealPlanId: planId, updatedAt: '2026-08-20T00:00:00.000Z' };
+    const unrelated: ShoppingList = { ...list, id: '44444444-4444-4444-8444-444444444444', mealPlanId: otherPlanId, updatedAt: '2026-08-21T00:00:00.000Z' };
+    await repository.saveList(older);
+    await repository.saveList(newer);
+    await repository.saveList(unrelated);
+
+    expect(await repository.getListForMealPlan(planId)).toEqual(newer);
+    expect(await repository.getListForMealPlan('77777777-7777-4777-8777-777777777777')).toBeNull();
+  });
 });

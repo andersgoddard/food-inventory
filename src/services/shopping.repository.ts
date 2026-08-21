@@ -22,6 +22,12 @@ export class ShoppingRepository {
     return (await this.getLists()).find((list) => list.id === id) || null;
   }
 
+  async getListForMealPlan(mealPlanId: string): Promise<ShoppingList | null> {
+    const matches = (await this.getLists()).filter((list) => list.mealPlanId === mealPlanId);
+    if (matches.length === 0) return null;
+    return matches.reduce((latest, candidate) => (candidate.updatedAt > latest.updatedAt ? candidate : latest));
+  }
+
   async saveList(list: ShoppingList): Promise<ShoppingList> {
     const validated = shoppingListSchema.parse(list);
     const lists = await this.getLists();

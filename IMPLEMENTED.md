@@ -157,13 +157,47 @@ This is the concise historical record of functionality that exists and has been 
 - storage-area pages provide local name search, close-to-expiry filtering, item review, and deletion
 - web navigation uses client-side Expo Router transitions rather than full-page reloads
 
-### V0.9 — Shopping Foundations
+### V0.9 — Shopping Domain, Meal Requirements, and Inventory Matching (Phases 2-6)
+**Status:** Implementation complete for V0.9 scope.
+
 **Delivered**
-- explicit deterministic `MealRequirement` model and derivation module
-- equivalent ingredients aggregate across meals before Inventory matching
-- Shopping generation consumes the Meal Requirements boundary rather than duplicating aggregation logic
-- same-plan Shopping regeneration preserves manual items
-- matching meal-derived Shopping items preserve IDs, purchased/skipped state, and price observations during regeneration
+- explicit deterministic `MealRequirement` model and derivation module (`src/services/meal-requirements.ts`), aggregating equivalent ingredients by identity (not identity+unit) and converting compatible units (g/kg, ml/l) into a single combined requirement
+- each `MealRequirement` and `ShoppingItem` carries a `quantityConfidence` of `exact`/`approximate`/`unknown`; `ShoppingService.generateList` only treats a requirement as fully covered when confidence is `exact`, so approximate/unknown-quantity items are never silently dropped
+- `ingredient-matcher.ts` (`matchIngredient`) excludes expired Inventory stock from available quantity while still reporting it via `matchedInventoryItemIds` for traceability
+- `matchIngredient` now also records `incompatibleUnitInventoryItemIds`: name-matching Inventory rows whose unit couldn't be reconciled with the requirement's unit are never folded into `availableQuantity` or silently dropped - they're tracked separately. Surfaced on `ShoppingItem.hasIncompatibleUnitInventory` and shown in the Shopping UI ("Some matching inventory uses a different unit and couldn't be compared automatically - check manually"). **Invariant:** availability is never guessed at across incompatible units.
+- `ShoppingItem.hasUseSoonInventory` surfaces `matchIngredient`'s existing `useSoonInventoryItemIds` in the Shopping UI ("Some of what you already have is expiring soon - use that up before buying more") - previously computed but only used internally by meal-plan candidate scoring
+- Shopping generation consumes the Meal Requirements boundary rather than duplicating aggregation logic, and never mutates Inventory
+- Shopping regeneration preserves manual items and matching meal-derived items' IDs, purchased/skipped state, and price observations, both within a session and across app restarts (`ShoppingRepository.getListForMealPlan` fallback when no in-memory list is held)
+- `ShoppingItem` records originating meal titles (`sourceMealTitles`), shown in the Shopping UI alongside a required/available/buy quantity breakdown and a confidence explanation for approximate/unknown items
+- manual Shopping items support a unit (`UnitSelector` in the Shopping screen) and can be removed entirely via `ShoppingService.removeItem`, not just marked "skipped" forever
+- `ShoppingService.detachFromMealPlan(mealPlanId)`: when a saved meal plan is deleted (`useMealPlanner.deleteSavedPlan`), any Shopping list still linked to it has its `mealPlanId` set to `null` rather than left as a dangling reference to a nonexistent plan. This reuses the existing nullable-`mealPlanId` state (already used by manually-created lists) instead of a new lifecycle framework. **Invariant:** manual items and all purchased/skipped/needed state are preserved unchanged; the list simply stops being regenerable against that plan and surfaces under "Saved shopping lists".
+- end-to-end tested through the real `MealPlanRepository` + `ShoppingService.generateListForPlanId` path (editing a saved plan's meal correctly recalculates Shopping without losing manual items), not only pure-function tests
+
+**Tests added/updated:** `shopping.service.test.ts` (incompatible-unit/use-soon flags, `confirmItemPurchased` found/not-found, `detachFromMealPlan` found/not-found preserving items), `meal-planning.engine.test.ts` (mixed compatible+incompatible unit matches), `shopping.repository.test.ts`, `use-meal-planner.test.ts` (`deleteSavedPlan` calls `detachFromMealPlan`).
+
+**Deliberately not implemented, with reasoning:**
+- required-vs-optional modelling beyond a substitution-status flag - needs a food-role taxonomy, deferred to a future phase, not built speculatively
+- serving-size scaling of recipe ingredient quantities - reviewed and explicitly not built: there is no existing input that mutates an existing plan's serving count (changing servings always creates a new plan), so there is nothing correct to scale against; building plan-editing/reconciliation machinery to satisfy a requirement with no mutable input would be speculative complexity
+- in-place editing of an existing plan's servings/meal type/exclusions - same reasoning; the existing "new plan on change" model is preserved as correct for V0.9, not treated as a gap
+- unit conversion beyond g/kg and l/ml (e.g. spoon/cup measures, count-based equivalence)
+
+### V0.9 — Shopping -> Inventory Intake (Phase 8)
+**Status:** Implementation complete for V0.9 scope.
+
+**Delivered**
+- All three intake paths described by the plan are now wired into Shopping, reusing existing infrastructure with no second import/purchasing system:
+  - `Add to inventory` - opens the existing manual-add form (`/inventory/add`) prefilled with name/quantity/unit
+  - `Scan food` - opens the existing food-scan flow (`/scan-food`)
+  - `Scan receipt` - opens the existing receipt-scan flow (`/scan-receipt`)
+  - all three pass `shoppingListId`/`shoppingItemId` route params; the Shopping screen persists (`save()`) the list before navigating, since the returning screen looks the item up from storage
+- `ShoppingService.confirmItemPurchased(shoppingListId, itemId)` centralizes the "mark this Shopping item purchased" step, called identically from all three intake screens only after the existing intake confirmation (`inventoryService.addItem`) actually succeeds. Tolerates a missing/unsaved list by returning `null` rather than throwing.
+- **Invariant preserved:** Shopping status is only ever updated after Inventory intake is confirmed successful - a failed scan, failed validation, or failed storage write leaves the Shopping item's status untouched, and marking an item purchased via the pre-existing status buttons (without going through intake) still never touches Inventory
+- The user can freely edit prefilled/scanned name, quantity, unit, category, and location before confirming, which is what supports over-purchase, under-purchase, substitution, and the scanner identifying a different product - none of these needed special-case handling
+- Confirmed intake without an originating Shopping item continues to work via the existing unmodified add/scan flows
+
+**Tests added/updated:** `shopping.service.test.ts` (`confirmItemPurchased`). Screen-level wiring (`scan-food.tsx`, `scan-receipt.tsx`, `inventory/add.tsx`, `shopping.tsx`) has no dedicated tests, consistent with this repo's existing convention of not unit-testing screens directly - covered by the service-level tests plus the planned UAT pass.
+
+**Deliberately not implemented:** none within V0.9 scope for this phase.
 
 ### Outstanding V0.8 work
 - broader real-device camera/photo-library and receipt acceptance
@@ -180,5 +214,6 @@ This is the concise historical record of functionality that exists and has been 
 - V0.6: implemented MVP
 - V0.7: implemented MVP
 - V0.8: Phases A–E implemented/achieved for the initial TestFlight milestone; Phase F outstanding
-- Next product milestone: Household Food Workflow / Product UX is planned but not started
+- V0.9: implementation complete (Phases 2-8 of the roadmap) - Shopping domain, Meal Requirements, deterministic Inventory matching (including incompatible-unit and use-soon surfacing), Shopping Requirements, Shopping UX, meal-planning integration, and all three Shopping->Inventory intake paths (manual, food scan, receipt scan). Serving-size scaling and in-place plan editing were reviewed and deliberately not built - see [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) for reasoning and the phase-by-phase status
+- Next: dedicated V0.9 UAT pass, then a corrective implementation pass based on its findings
 - Nutrition / Deeper Intelligence: deferred until the household workflow is validated

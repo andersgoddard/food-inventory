@@ -1,4 +1,4 @@
-import { mealPlanRepository } from '@/services';
+import { mealPlanRepository, shoppingService } from '@/services';
 import { OpenAiRecipeProvider } from '@/services/ai/openai-recipe.provider';
 import { MealPlanningService } from '@/services/meal-planning.service';
 import { isMealPlanStale, prepareSavedMealPlan } from '@/services/meal-planning/persistence';
@@ -173,6 +173,7 @@ export function useMealPlanner() {
 
   const deleteSavedPlan = useCallback(async (id: string) => {
     await mealPlanRepository.deletePlan(id);
+    await shoppingService.detachFromMealPlan(id);
     setSavedPlans((current) => current.filter((item) => item.id !== id));
     if (plan?.id === id) {
       setPlan(null);

@@ -92,6 +92,20 @@ describe('deterministic meal-planning engine', () => {
     expect(match.status).toBe('partial');
     expect(match.availableQuantity).toBe(0);
     expect(match.matchedInventoryItemIds).toEqual(['inventory-1']);
+    expect(match.incompatibleUnitInventoryItemIds).toEqual(['inventory-1']);
+  });
+
+  it('reports only the incompatible-unit rows separately when some matches are compatible and some are not', () => {
+    const snapshot = buildInventorySnapshot([
+      inventoryItem({ id: 'compatible-milk', quantity: 500, unit: 'ml' }),
+      inventoryItem({ id: 'incompatible-milk', quantity: 2, unit: 'unit' }),
+    ], referenceDate);
+    const match = matchIngredient({ name: 'milk', quantity: 1, unit: 'l', status: 'missing', matchedInventoryItemIds: [] }, snapshot);
+
+    expect(match.status).toBe('partial');
+    expect(match.availableQuantity).toBe(0.5);
+    expect(match.matchedInventoryItemIds).toEqual(['compatible-milk', 'incompatible-milk']);
+    expect(match.incompatibleUnitInventoryItemIds).toEqual(['incompatible-milk']);
   });
 
   it('keeps unknown recipe units partial when a quantity is requested', () => {
@@ -99,6 +113,30 @@ describe('deterministic meal-planning engine', () => {
     const match = matchIngredient({ name: 'milk', quantity: 1, unit: null, status: 'missing', matchedInventoryItemIds: [] }, snapshot);
 
     expect(match.status).toBe('partial');
+  });
+
+  it('does not count expired stock as covering a requirement, but still reports it as matched', () => {
+    const snapshot = buildInventorySnapshot([
+      inventoryItem({ id: 'expired-milk', quantity: 1, unit: 'l', expiryDate: '2026-08-01T00:00:00.000Z' }),
+    ], referenceDate);
+    const match = matchIngredient({ name: 'milk', quantity: 1, unit: 'l', status: 'missing', matchedInventoryItemIds: [] }, snapshot);
+
+    expect(match.status).toBe('partial');
+    expect(match.availableQuantity).toBe(0);
+    expect(match.matchedInventoryItemIds).toEqual(['expired-milk']);
+    expect(match.useSoonInventoryItemIds).toEqual([]);
+  });
+
+  it('counts only usable stock when both expired and fresh stock match', () => {
+    const snapshot = buildInventorySnapshot([
+      inventoryItem({ id: 'expired-milk', quantity: 1, unit: 'l', expiryDate: '2026-08-01T00:00:00.000Z' }),
+      inventoryItem({ id: 'fresh-milk', quantity: 0.5, unit: 'l', expiryDate: '2026-08-30T00:00:00.000Z' }),
+    ], referenceDate);
+    const match = matchIngredient({ name: 'milk', quantity: 1, unit: 'l', status: 'missing', matchedInventoryItemIds: [] }, snapshot);
+
+    expect(match.status).toBe('partial');
+    expect(match.availableQuantity).toBe(0.5);
+    expect(match.matchedInventoryItemIds).toEqual(['expired-milk', 'fresh-milk']);
   });
 
   it('calculates coverage from actual full ingredient matches and expiry use', () => {

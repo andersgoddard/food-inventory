@@ -1,5 +1,6 @@
 import { RecipeIngredient } from '@/types/recipe';
 import { PlanningInventoryItem, normalizeIngredientName } from './inventory-snapshot';
+import { convertQuantity } from './unit-conversion';
 
 export type IngredientMatchStatus = 'available' | 'partial' | 'missing';
 
@@ -12,21 +13,10 @@ export interface IngredientMatch {
   status: IngredientMatchStatus;
   matchedInventoryItemIds: string[];
   useSoonInventoryItemIds: string[];
-}
-
-interface UnitConversion {
-  compatible: boolean;
-  quantity: number;
-}
-
-function convertQuantity(quantity: number, from: PlanningInventoryItem['unit'], to: RecipeIngredient['unit']): UnitConversion {
-  if (!to) return { compatible: false, quantity: 0 };
-  if (from === to) return { compatible: true, quantity };
-  if (from === 'kg' && to === 'g') return { compatible: true, quantity: quantity * 1000 };
-  if (from === 'g' && to === 'kg') return { compatible: true, quantity: quantity / 1000 };
-  if (from === 'l' && to === 'ml') return { compatible: true, quantity: quantity * 1000 };
-  if (from === 'ml' && to === 'l') return { compatible: true, quantity: quantity / 1000 };
-  return { compatible: false, quantity: 0 };
+  // Non-expired inventory rows that match by name but whose unit couldn't be reconciled with the
+  // requested unit. Their quantity is conservatively excluded from availableQuantity rather than
+  // guessed at, so this list lets callers surface "some matching stock couldn't be compared".
+  incompatibleUnitInventoryItemIds: string[];
 }
 
 function namesMatch(ingredientName: string, inventoryName: string): boolean {
@@ -43,9 +33,14 @@ export function matchIngredient(
   inventory: PlanningInventoryItem[]
 ): IngredientMatch {
   const matches = inventory.filter((item) => namesMatch(ingredient.name, item.name));
-  const compatibleMatches = matches
-    .map((item) => ({ item, conversion: convertQuantity(item.quantity, item.unit, ingredient.unit) }))
-    .filter(({ conversion }) => conversion.compatible);
+  // Expired stock isn't safely usable, so it can't count toward covering a requirement,
+  // even though it's still reported in matchedInventoryItemIds for traceability/alerts.
+  const usableMatches = matches.filter((item) => !item.isExpired);
+  const convertedMatches = usableMatches.map((item) => ({ item, conversion: convertQuantity(item.quantity, item.unit, ingredient.unit) }));
+  const compatibleMatches = convertedMatches.filter(({ conversion }) => conversion.compatible);
+  // Conservative by design: a name match with an incompatible unit (e.g. inventory in "unit"
+  // when the recipe needs "g") is never guessed at or silently folded into availableQuantity.
+  const incompatibleUnitMatches = ingredient.unit ? convertedMatches.filter(({ conversion }) => !conversion.compatible) : [];
   const availableQuantity = compatibleMatches.reduce((total, match) => total + match.conversion.quantity, 0);
   const requestedQuantity = ingredient.quantity;
   const hasNameMatch = matches.length > 0;
@@ -71,5 +66,6 @@ export function matchIngredient(
     useSoonInventoryItemIds: compatibleMatches
       .filter(({ item }) => item.useSoon && !item.isExpired)
       .map(({ item }) => item.inventoryItemId),
+    incompatibleUnitInventoryItemIds: incompatibleUnitMatches.map(({ item }) => item.inventoryItemId),
   };
 }

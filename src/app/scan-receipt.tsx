@@ -1,5 +1,5 @@
 import * as ImagePicker from 'expo-image-picker';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Image, Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,12 +14,14 @@ import { FeedbackBanner } from '@/components/ui/feedback-banner';
 import { Input } from '@/components/ui/input';
 import { Spacing } from '@/constants/theme';
 import { useReceiptScan } from '@/hooks/use-receipt-scan';
+import { shoppingService } from '@/services';
 import { InventoryCategory, InventoryUnit } from '@/types/inventory';
 import { generateUUID } from '@/utils/id';
 import { resizeImageForUpload } from '@/utils/image';
 
 export default function ScanReceiptScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ shoppingListId?: string; shoppingItemId?: string }>();
   const {
     photos,
     location,
@@ -92,6 +94,11 @@ export default function ScanReceiptScreen() {
   const handleConfirm = async () => {
     const completed = await confirm();
     if (completed) {
+      if (params.shoppingListId && params.shoppingItemId) {
+        await shoppingService.confirmItemPurchased(params.shoppingListId, params.shoppingItemId);
+        router.replace({ pathname: '/shopping', params: { shoppingListId: params.shoppingListId, message: 'Receipt items added to inventory' } });
+        return;
+      }
       router.replace({ pathname: '/inventory', params: { message: 'Receipt items added' } });
     }
   };

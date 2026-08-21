@@ -67,6 +67,12 @@ export interface ShoppingItem {
   quantityConfidence: 'exact' | 'approximate' | 'unknown';
   source: 'meal_plan' | 'manual';
   sourceMealPlanMealIds: string[];
+  sourceMealTitles: string[];
+  // True when some matching Inventory exists but couldn't be counted because its unit was
+  // incompatible with the requirement's unit (conservatively excluded, never guessed at).
+  hasIncompatibleUnitInventory: boolean;
+  // True when some of the Inventory counted toward availableQuantity is expiring soon.
+  hasUseSoonInventory: boolean;
   priority: ShoppingItemPriority;
   status: ShoppingItemStatus;
   parPrice: ParPrice | null;

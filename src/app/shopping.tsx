@@ -8,16 +8,19 @@ import { ThemedView } from '@/components/themed-view';
 import { Button } from '@/components/ui/button';
 import { FeedbackBanner } from '@/components/ui/feedback-banner';
 import { Input } from '@/components/ui/input';
+import { UnitSelector } from '@/components/inventory/unit-selector';
 import { Spacing } from '@/constants/theme';
 import { useShopping } from '@/hooks/use-shopping';
+import { InventoryUnit } from '@/types/inventory';
 import { ShoppingItemStatus } from '@/types/shopping';
 
 export default function ShoppingScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ mealPlanId?: string; shoppingListId?: string }>();
-  const { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, compareItemPrice } = useShopping();
+  const params = useLocalSearchParams<{ mealPlanId?: string; shoppingListId?: string; message?: string }>();
+  const { list, savedLists, loading, error, loadLists, generateForPlan, openList, save, setItemStatus, addManualItem, removeItem, compareItemPrice } = useShopping();
   const [manualName, setManualName] = useState('');
   const [manualQuantity, setManualQuantity] = useState('');
+  const [manualUnit, setManualUnit] = useState<InventoryUnit | null>(null);
   const [manualPriority, setManualPriority] = useState<'required' | 'recommended'>('required');
   const [priceInputs, setPriceInputs] = useState<Record<string, { current: string; reference: string }>>({});
   const [priceDetails, setPriceDetails] = useState<Record<string, boolean>>({});
@@ -29,9 +32,39 @@ export default function ShoppingScreen() {
   }, [generateForPlan, loadLists, openList, params.mealPlanId, params.shoppingListId]);
 
   const addItem = () => {
-    addManualItem(manualName, manualQuantity ? Number(manualQuantity) : null, null, manualPriority);
+    addManualItem(manualName, manualQuantity ? Number(manualQuantity) : null, manualUnit, manualPriority);
     setManualName('');
     setManualQuantity('');
+    setManualUnit(null);
+  };
+
+  // The list must be persisted before navigating away, since intake screens look the item up
+  // by shoppingListId/shoppingItemId from storage (not from in-memory state) once they return.
+  const confirmIntake = async (item: { id: string; name: string; missingQuantity: number | null; requiredQuantity: number | null; unit: string | null }) => {
+    if (!list) return;
+    await save();
+    router.push({
+      pathname: '/inventory/add',
+      params: {
+        name: item.name,
+        quantity: String(item.missingQuantity ?? item.requiredQuantity ?? ''),
+        unit: item.unit || undefined,
+        shoppingListId: list.id,
+        shoppingItemId: item.id,
+      },
+    });
+  };
+
+  const scanFoodIntake = async (itemId: string) => {
+    if (!list) return;
+    await save();
+    router.push({ pathname: '/scan-food', params: { shoppingListId: list.id, shoppingItemId: itemId } });
+  };
+
+  const scanReceiptIntake = async (itemId: string) => {
+    if (!list) return;
+    await save();
+    router.push({ pathname: '/scan-receipt', params: { shoppingListId: list.id, shoppingItemId: itemId } });
   };
 
   const statusButton = (itemId: string, status: ShoppingItemStatus, label: string) => (
@@ -45,6 +78,7 @@ export default function ShoppingScreen() {
           <ThemedText type="title">Shopping list</ThemedText>
           <ThemedText type="small" themeColor="textSecondary">What you need to buy for your meal plan.</ThemedText>
           {error && <FeedbackBanner message={error} tone="error" />}
+          {params.message && <FeedbackBanner message={params.message} />}
           {loading && <ThemedText type="small" themeColor="textSecondary">Preparing your shopping list...</ThemedText>}
           {!loading && list && (
             <>
@@ -60,9 +94,33 @@ export default function ShoppingScreen() {
                 <ThemedView key={item.id} style={styles.item}>
                   <ThemedText type="subtitle" style={styles.itemName}>• {item.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {item.missingQuantity === null ? 'Quantity uncertain' : `${item.missingQuantity} ${item.unit || ''}`.trim()}
+                    {item.missingQuantity === null
+                      ? 'Quantity uncertain'
+                      : item.availableQuantity
+                        ? `Need ${item.requiredQuantity ?? item.missingQuantity} ${item.unit || ''} · have ${item.availableQuantity} ${item.unit || ''} · buy ${item.missingQuantity} ${item.unit || ''}`.trim()
+                        : `${item.missingQuantity} ${item.unit || ''}`.trim()}
                     {' · '}{item.source === 'meal_plan' ? 'From meal plan' : 'Manual item'}
                   </ThemedText>
+                  {item.sourceMealTitles.length > 0 && (
+                    <ThemedText type="small" themeColor="textSecondary">For: {item.sourceMealTitles.join(', ')}</ThemedText>
+                  )}
+                  {item.quantityConfidence !== 'exact' && (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.confidenceNote}>
+                      {item.quantityConfidence === 'unknown'
+                        ? 'Amount needed is unknown - check before buying.'
+                        : 'Amount needed is approximate and may be higher.'}
+                    </ThemedText>
+                  )}
+                  {item.hasIncompatibleUnitInventory && (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.confidenceNote}>
+                      Some matching inventory uses a different unit and couldn't be compared automatically - check manually.
+                    </ThemedText>
+                  )}
+                  {item.hasUseSoonInventory && (
+                    <ThemedText type="small" themeColor="textSecondary" style={styles.confidenceNote}>
+                      Some of what you already have is expiring soon - use that up before buying more.
+                    </ThemedText>
+                  )}
                   <Pressable onPress={() => setPriceDetails((current) => ({ ...current, [item.id]: !current[item.id] }))} style={styles.priceToggle}>
                     <ThemedText type="small" themeColor="textSecondary">{priceDetails[item.id] ? 'Hide price details' : 'Price details'}</ThemedText>
                   </Pressable>
@@ -105,6 +163,12 @@ export default function ShoppingScreen() {
                     {statusButton(item.id, 'needed', 'Needed')}
                     {statusButton(item.id, 'purchased', 'Purchased')}
                     {statusButton(item.id, 'skipped', 'Skipped')}
+                    <Button title="Add to inventory" size="small" variant="secondary" onPress={() => confirmIntake(item)} />
+                    <Button title="Scan food" size="small" variant="secondary" onPress={() => scanFoodIntake(item.id)} />
+                    <Button title="Scan receipt" size="small" variant="secondary" onPress={() => scanReceiptIntake(item.id)} />
+                    {item.source === 'manual' && (
+                      <Button title="Remove" size="small" variant="danger" onPress={() => removeItem(item.id)} />
+                    )}
                   </ThemedView>
                 </ThemedView>
                   ))}
@@ -114,6 +178,7 @@ export default function ShoppingScreen() {
                 <ThemedText type="subtitle">Add an item</ThemedText>
                 <Input label="Item name" value={manualName} onChangeText={setManualName} placeholder="e.g. Coffee" />
                 <Input label="Quantity (optional)" value={manualQuantity} onChangeText={setManualQuantity} keyboardType="decimal-pad" />
+                <UnitSelector value={manualUnit} onChange={setManualUnit} />
                 <Pressable onPress={() => setManualPriority((value) => value === 'required' ? 'recommended' : 'required')} style={styles.priorityToggle}>
                   <ThemedText type="default">Priority</ThemedText><ThemedText type="small" themeColor="textSecondary">{manualPriority === 'required' ? 'Required' : 'Recommended'}</ThemedText>
                 </Pressable>
@@ -150,6 +215,7 @@ const styles = StyleSheet.create({
   item: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#F7F8FA' },
   group: { gap: Spacing.two },
   itemName: { fontSize: 24, lineHeight: 30 },
+  confidenceNote: { fontStyle: 'italic' },
   priceToggle: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
   priceStatus: { color: '#9A6700', fontWeight: '600' },
   priceSection: { gap: Spacing.two, paddingTop: Spacing.two },

@@ -21,6 +21,8 @@ import { UnitSelector } from './unit-selector';
 
 export interface AddItemFormProps {
   item?: InventoryItem | null;
+  // Seeds a new item's fields (e.g. from a Shopping item) without entering edit mode.
+  initialValues?: Partial<Pick<InventoryItem, 'name' | 'category' | 'quantity' | 'unit'>>;
   onSubmit: (data: CreateInventoryItemInput) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -29,17 +31,18 @@ export interface AddItemFormProps {
 
 export function AddItemForm({
   item,
+  initialValues,
   onSubmit,
   onCancel,
   isLoading = false,
   containerStyle,
 }: AddItemFormProps) {
   // Form state
-  const [name, setName] = useState(item?.name || '');
-  const [category, setCategory] = useState<InventoryCategory | null>(item?.category || null);
+  const [name, setName] = useState(item?.name || initialValues?.name || '');
+  const [category, setCategory] = useState<InventoryCategory | null>(item?.category || initialValues?.category || null);
   const [location, setLocation] = useState<InventoryLocation | null>(item?.location || null);
-  const [quantity, setQuantity] = useState(item?.quantity.toString() || '');
-  const [unit, setUnit] = useState<InventoryUnit | null>(item?.unit || null);
+  const [quantity, setQuantity] = useState(item?.quantity.toString() || initialValues?.quantity?.toString() || '');
+  const [unit, setUnit] = useState<InventoryUnit | null>(item?.unit || initialValues?.unit || null);
   const [purchaseDate, setPurchaseDate] = useState(item?.purchaseDate || getCurrentISOString());
   const [expiryDate, setExpiryDate] = useState<string | null>(item?.expiryDate || null);
   const [purchasePrice, setPurchasePrice] = useState(item?.purchasePrice?.toString() || '');

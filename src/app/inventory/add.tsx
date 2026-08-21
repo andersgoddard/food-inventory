@@ -3,7 +3,7 @@
  * Form to add a new inventory item
  */
 
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -14,10 +14,19 @@ import { ThemedView } from '@/components/themed-view';
 import { ModalDialog } from '@/components/ui/modal';
 import { Spacing } from '@/constants/theme';
 import { useInventory } from '@/hooks/use-inventory';
-import { CreateInventoryItemInput } from '@/types/inventory';
+import { shoppingService } from '@/services';
+import { CreateInventoryItemInput, InventoryCategory, InventoryUnit } from '@/types/inventory';
 
 export default function AddItemScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{
+    name?: string;
+    category?: string;
+    quantity?: string;
+    unit?: string;
+    shoppingListId?: string;
+    shoppingItemId?: string;
+  }>();
   const { addItem } = useInventory();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +35,23 @@ export default function AddItemScreen() {
     router.replace({ pathname: '/inventory', params: { message: 'Item added' } });
   };
 
+  // When arriving from a Shopping item, confirming intake here also marks that item
+  // purchased - Shopping state stays a separate, explicit step, not an automatic side effect.
+  const confirmShoppingItemIfPresent = async () => {
+    if (!params.shoppingListId || !params.shoppingItemId) return;
+    await shoppingService.confirmItemPurchased(params.shoppingListId, params.shoppingItemId);
+  };
+
   const handleSubmit = async (data: CreateInventoryItemInput) => {
     try {
       setIsLoading(true);
       setError(null);
       await addItem(data);
+      await confirmShoppingItemIfPresent();
+      if (params.shoppingListId) {
+        router.replace({ pathname: '/shopping', params: { shoppingListId: params.shoppingListId, message: 'Item added to inventory' } });
+        return;
+      }
       returnToInventory();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to add item';
@@ -41,6 +62,10 @@ export default function AddItemScreen() {
   };
 
   const handleCancel = () => {
+    if (params.shoppingListId) {
+      router.replace({ pathname: '/shopping', params: { shoppingListId: params.shoppingListId } });
+      return;
+    }
     returnToInventory();
   };
 
@@ -52,6 +77,12 @@ export default function AddItemScreen() {
         </ThemedText>
 
         <AddItemForm
+          initialValues={{
+            name: params.name,
+            category: params.category as InventoryCategory | undefined,
+            quantity: params.quantity ? Number(params.quantity) : undefined,
+            unit: params.unit as InventoryUnit | undefined,
+          }}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           isLoading={isLoading}
