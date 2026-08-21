@@ -20,6 +20,7 @@ export default function ShoppingScreen() {
   const [manualQuantity, setManualQuantity] = useState('');
   const [manualPriority, setManualPriority] = useState<'required' | 'recommended'>('required');
   const [priceInputs, setPriceInputs] = useState<Record<string, { current: string; reference: string }>>({});
+  const [priceDetails, setPriceDetails] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (params.shoppingListId) openList(params.shoppingListId);
@@ -57,15 +58,15 @@ export default function ShoppingScreen() {
                   <ThemedText type="subtitle">{group === 'required' ? 'Required' : group === 'recommended' ? 'Recommended' : 'Manual items'}</ThemedText>
                   {groupItems.map((item) => (
                 <ThemedView key={item.id} style={styles.item}>
-                  <ThemedText type="subtitle" style={styles.itemName}>{item.name}</ThemedText>
+                  <ThemedText type="subtitle" style={styles.itemName}>• {item.name}</ThemedText>
                   <ThemedText type="small" themeColor="textSecondary">
                     {item.missingQuantity === null ? 'Quantity uncertain' : `${item.missingQuantity} ${item.unit || ''}`.trim()}
                     {' · '}{item.source === 'meal_plan' ? 'From meal plan' : 'Manual item'}
                   </ThemedText>
-                  <ThemedText type="small" style={item.priceStatus === 'unknown' ? undefined : styles.priceStatus}>
-                    {item.priceStatus === 'unknown' ? 'Price unknown' : item.priceStatus.replace('_', ' ')}
-                  </ThemedText>
-                  <ThemedView style={styles.priceSection}>
+                  <Pressable onPress={() => setPriceDetails((current) => ({ ...current, [item.id]: !current[item.id] }))} style={styles.priceToggle}>
+                    <ThemedText type="small" themeColor="textSecondary">{priceDetails[item.id] ? 'Hide price details' : 'Price details'}</ThemedText>
+                  </Pressable>
+                  {priceDetails[item.id] && <ThemedView style={styles.priceSection}>
                     <Input
                       label="Current price (GBP)"
                       value={priceInputs[item.id]?.current || ''}
@@ -89,7 +90,7 @@ export default function ShoppingScreen() {
                       }}
                       disabled={!priceInputs[item.id]?.current || !priceInputs[item.id]?.reference}
                     />
-                  </ThemedView>
+                  </ThemedView>}
                   {item.priceAssessment && (
                     <ThemedView style={styles.assessment}>
                       <ThemedText type="smallBold">{item.priceAssessment.recommendation.replaceAll('_', ' ')}</ThemedText>
@@ -149,6 +150,7 @@ const styles = StyleSheet.create({
   item: { gap: Spacing.one, padding: Spacing.three, borderRadius: Spacing.two, backgroundColor: '#F7F8FA' },
   group: { gap: Spacing.two },
   itemName: { fontSize: 24, lineHeight: 30 },
+  priceToggle: { alignSelf: 'flex-start', paddingVertical: Spacing.one },
   priceStatus: { color: '#9A6700', fontWeight: '600' },
   priceSection: { gap: Spacing.two, paddingTop: Spacing.two },
   assessment: { gap: Spacing.one, padding: Spacing.two, borderRadius: Spacing.two, backgroundColor: '#E7F0FF' },

@@ -35,6 +35,10 @@ export class ShoppingService {
     return this.generateList(plan, existingList);
   }
 
+  async generateListForPlan(plan: MealPlan, existingList: ShoppingList | null = null): Promise<ShoppingList> {
+    return this.generateList(plan, existingList);
+  }
+
   async generateList(plan: MealPlan, existingList: ShoppingList | null = null): Promise<ShoppingList> {
     const inventory = await this.inventoryService.getItems();
     const snapshot = buildInventorySnapshot(inventory);

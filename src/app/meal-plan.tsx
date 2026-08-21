@@ -13,6 +13,7 @@ import { ModalDialog } from '@/components/ui/modal';
 import { MEAL_PLAN_PREFERENCES_ROUTE } from '@/constants/meal-plan';
 import { Spacing } from '@/constants/theme';
 import { useMealPlanner } from '@/hooks/use-meal-planner';
+import { setCurrentMealPlanDraft } from '@/services/meal-plan.draft-store';
 import { parseMealPlanningPreferences } from '@/services/meal-plan.schemas';
 import { MealPlanningPreferences } from '@/types/meal-plan';
 import { formatDate } from '@/utils/date';
@@ -94,7 +95,11 @@ export default function MealPlanScreen() {
 
   const handleStartOver = () => router.replace(MEAL_PLAN_PREFERENCES_ROUTE);
   const handleSavedPlans = () => router.push('/meal-plan/saved');
-  const handleShoppingList = () => plan && router.push({ pathname: '/shopping', params: { mealPlanId: plan.id } });
+  const handleShoppingList = () => {
+    if (!plan) return;
+    setCurrentMealPlanDraft(plan);
+    router.push({ pathname: '/shopping', params: { mealPlanId: plan.id } });
+  };
   const hasSavedVersion = !!plan && savedPlans.some((item) => item.id === plan.id);
   const handleDiscardChanges = () => {
     if (hasSavedVersion) cancelEdit();
